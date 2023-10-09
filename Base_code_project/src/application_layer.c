@@ -21,4 +21,24 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
         printf("\nError! Role is Invalid!");
         return;
     }
+
+    LinkLayer ll;
+    strcpy(ll.serialPort, serialPort);
+    ll.role=Tr;
+    ll.baudRate=baudRate;
+    ll.nRetransmissions= nTries;
+    ll.timeout= timeout;
+    if(Tr==LlTx){
+        send();
+    }
+    else{ receive();}
+}
+
+void send(){
+    unsigned char packet[300], bytes[200], flagOver= 1;
+    int sizePacket = 0;
+}
+
+void reveive(){
+
 }
