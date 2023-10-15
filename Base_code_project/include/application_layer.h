@@ -3,34 +3,37 @@
 
 #ifndef _APPLICATION_LAYER_H_
 #define _APPLICATION_LAYER_H_
-
 #include "link_layer.h"
+#include <string.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <termios.h>
+#include <unistd.h>
+#include <math.h>
 
 // Application layer main function.
 // Arguments:
-//   portName: Serial port name (e.g., /dev/ttyS0).
-//   mode: Application mode {"tx", "rx"}.
-//   baudRate: Baudrate of the serial port.
-//   maxRetries: Maximum number of frame retries.
-//   customTimeout: Frame timeout.
-//   dataFileName: Name of the file to send / receive.
-void customApplicationLayer(const char *portName, const char *mode, int baudRate,
-                           int maxRetries, int customTimeout, const char *dataFileName);
+//   serialPort: Serial port name (e.g., /dev/ttyS0).
+//   role: Application role {"tx", "rx"}.
+//   baudrate: Baudrate of the serial port.
+//   nTries: Maximum number of frame retries.
+//   timeout: Frame timeout.
+//   filename: Name of the file to send / receive.
+void applicationLayer(const char *serialPort, const char *role, int baudRate,
+                      int nTries, int timeout, const char *filename);
 
-// Function to parse a control packet.
-unsigned char *parseControlPacket(unsigned char *packet, int size, unsigned long int *fileSize);
+unsigned char *generateControlPacket(const unsigned int type, const char *dataFileName, long int dataSize);
 
-// Function to parse a data packet.
-void parseDataPacket(const unsigned char *packet, const unsigned int packetSize, unsigned char *buffer);
-
-// Function to create a control packet.
-unsigned char *generateControlPacket(const unsigned int type, const char *dataFileName, long int dataSize, unsigned int *size);
-
-// Function to create a data packet.
 unsigned char *generateDataPacket(unsigned char sequence, unsigned char *data, int dataSize, int *packetSize);
 
-// Function to read data from a file.
-unsigned char *getData(FILE *fd, long int fileLength);
+unsigned char *getData(FILE *fd, long int length);
+
+unsigned char *auxControlPacket(unsigned char *packet, int size, unsigned long int *fileSize);
+
+void auxDataPacket(const unsigned char *packet, const unsigned int packetSize, unsigned char *buf);
 
 #endif // _APPLICATION_LAYER_H_
