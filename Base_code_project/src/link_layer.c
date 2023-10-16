@@ -36,7 +36,7 @@ unsigned char tramaRx = 1;
 ////////////////////////////////////////////////
 int llopen(LinkLayer connectionParameters) {
     State state = START;
-    int serialPortFd = connection(connectionParameters.serialPort);  // Renamed 'fd' to 'serialPortFd'
+    int serialPortFd = openAndConfigureSerialPort(connectionParameters.serialPort);  // Renamed 'fd' to 'serialPortFd'
 
     if (serialPortFd < 0) {
         return -1;
