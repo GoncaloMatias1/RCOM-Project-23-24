@@ -1,6 +1,8 @@
 // Application layer protocol implementation
 
+#include <stdio.h>
 #include "application_layer.h"
+
 
 void applicationLayer(const char *portName, const char *mode, int baudRate,
                             int maxRetries, int customTimeout, const char *dataFileName)
