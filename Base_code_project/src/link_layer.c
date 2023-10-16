@@ -165,32 +165,34 @@ int llwrite(int serialPortFd, const unsigned char *dataBuffer, int dataSize) {
     frame[framePosition++] = BCC2;
     frame[framePosition++] = FLAG;
 
-    int currentTransmission = 0;
+    int currentTransmition = 0;
     int rejected = 0, accepted = 0;
 
-    while (currentTransmission < retransmitions) {
+    while (currentTransmition < retransmitions) { 
         alarmTriggered = FALSE;
         alarm(timeout);
         rejected = 0;
         accepted = 0;
+        while (alarmTriggered == FALSE && !rejected && !accepted) {
 
-        // Attempt to transmit the frame
-        write(serialPortFd, frame, framePosition);
-        unsigned char result = readControlFrame(serialPortFd);
+            write(serialPortFd, frame, framePosition);
+            unsigned char result = readControlFrame(serialPortFd);
+            
+            if(!result){
+                continue;
+            }
+            else if(result == C_REJ(0) || result == C_REJ(1)) {
+                rejected = 1;
+            }
+            else if(result == C_RR(0) || result == C_RR(1)) {
+                accepted = 1;
+                tramaTx = (tramaTx+1) % 2;
+            }
+            else continue;
 
-        if (!result) {
-            continue;
-        } else if (result == C_REJ(0) || result == C_REJ(1)) {
-            rejected = 1;
-        } else if (result == C_RR(0) || result == C_RR(1)) {
-            accepted = 1;
-            tramaTx = (tramaTx + 1) % 2;
-        } else {
-            continue; // Handle other control frames as needed
         }
-
         if (accepted) break;
-        currentTransmission++;
+        currentTransmition++;
     }
 
     free(frame);
