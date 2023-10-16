@@ -2,6 +2,14 @@
 
 #include "link_layer.h"
 
+int alarmTriggered = FALSE;
+int timeout = 0;
+int retransmitions = 0;
+int alarmCount = 0;
+unsigned char tramaTx = 0;
+unsigned char tramaRx = 1;
+
+
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
 #define BAUDRATE 38400
@@ -36,13 +44,13 @@ int llopen(LinkLayer connectionParameters) {
 
     unsigned char receivedByte;
     timeout = connectionParameters.timeout;
-    retransmissions = connectionParameters.nRetransmissions;
+    retransmitions = connectionParameters.nRetransmissions;
 
     switch (connectionParameters.role) {
         case LlTx: {
             (void)signal(SIGALRM, alarmHandler);
 
-            while (retransmissions != 0 && state != STOP_R) {
+            while (retransmitions != 0 && state != STOP_R) {
                 sendSupervisionFrame(serialPortFd, A_ER, C_SET);
 
                 alarm(connectionParameters.timeout);
@@ -77,7 +85,7 @@ int llopen(LinkLayer connectionParameters) {
                         }
                     }
                 }
-                retransmissions--;
+                retransmitions--;
             }
 
             if (state != STOP_R) {
@@ -160,7 +168,7 @@ int llwrite(int serialPortFd, const unsigned char *dataBuffer, int dataSize) {
     int currentTransmission = 0;
     int rejected = 0, accepted = 0;
 
-    while (currentTransmission < retransmissions) {
+    while (currentTransmission < retransmitions) {
         alarmTriggered = FALSE;
         alarm(timeout);
         rejected = 0;
@@ -286,7 +294,7 @@ int llclose(int fd) {
     (void) signal(SIGALRM, alarmHandler);
 
     // While there are retransmissions left and not in the STOP_R state
-    while (retransmissions != 0 && state != STOP_R) {
+    while (retransmitions != 0 && state != STOP_R) {
         // Send a DISC frame
         sendSupervisionFrame(fd, A_ER, C_DISC);
         
@@ -325,7 +333,7 @@ int llclose(int fd) {
             }
         }
 
-        retransmissions--;
+        retransmitions--;
     }
 
     // If not in the STOP_R state, return an error
