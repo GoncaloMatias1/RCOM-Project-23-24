@@ -20,11 +20,6 @@ RX_FILE = penguin-received.gif
 .PHONY: all
 all: $(BIN)/main $(BIN)/cable
 
-LDLIBS = -lm
-
-$(BIN)/main: main.c $(SRC)/*.c
-	$(CC) $(CFLAGS) -o $@ $^ -I$(INCLUDE) -lm
-
 $(BIN)/main: main.c $(SRC)/*.c
 	$(CC) $(CFLAGS) -o $@ $^ -I$(INCLUDE)
 
