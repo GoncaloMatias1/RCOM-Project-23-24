@@ -22,8 +22,8 @@ all: $(BIN)/main $(BIN)/cable
 
 LDLIBS = -lm
 
-$(BIN)/main: main.o link_layer.o application_layer.o
-    gcc -o bin/main main.o link_layer.o application_layer.o -Iinclude/ $(LDLIBS)
+$(BIN)/main: main.c $(SRC)/*.c
+	$(CC) $(CFLAGS) -o $@ $^ -I$(INCLUDE) -lm
 
 $(BIN)/main: main.c $(SRC)/*.c
 	$(CC) $(CFLAGS) -o $@ $^ -I$(INCLUDE)
