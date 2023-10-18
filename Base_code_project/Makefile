@@ -4,6 +4,7 @@
 # Parameters
 CC = gcc
 CFLAGS = -Wall
+LIBS = -lm  # Adicionando a biblioteca matemática (libm)
 
 SRC = src/
 INCLUDE = include/
@@ -21,7 +22,7 @@ RX_FILE = penguin-received.gif
 all: $(BIN)/main $(BIN)/cable
 
 $(BIN)/main: main.c $(SRC)/*.c
-	$(CC) $(CFLAGS) -o $@ $^ -I$(INCLUDE)
+	$(CC) $(CFLAGS) -o $@ $^ -I$(INCLUDE) $(LIBS)
 
 $(BIN)/cable: $(CABLE_DIR)/cable.c
 	$(CC) $(CFLAGS) -o $@ $^
