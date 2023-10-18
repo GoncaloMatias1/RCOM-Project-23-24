@@ -130,6 +130,13 @@ unsigned char *generateDataPacket(unsigned char sequence, unsigned char *data, i
     return packet;
 }
 
+long int getFileSize(FILE *file) {
+    fseek(file, 0, SEEK_END);
+    long int size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    return size;
+}
+
 unsigned char *getData(FILE *fd, long int length)
 {
     unsigned char *content = (unsigned char *)malloc(sizeof(unsigned char) * length);
@@ -160,4 +167,3 @@ void auxDataPacket(const unsigned char *packet, const unsigned int packetSize, u
     memcpy(buf, packet + 4, packetSize - 4);
     buf += packetSize - 4;
 }
-

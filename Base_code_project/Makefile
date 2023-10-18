@@ -3,6 +3,7 @@
 
 # Parameters
 CC = gcc
+LDLIBS = -lm
 CFLAGS = -Wall
 
 SRC = src/
