@@ -1,6 +1,7 @@
 // Application layer protocol implementation
 
 #include <stdio.h>
+#include <math.h>
 #include "application_layer.h"
 
 
