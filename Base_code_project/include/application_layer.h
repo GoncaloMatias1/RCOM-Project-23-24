@@ -30,7 +30,7 @@ unsigned char *generateControlPacket(const unsigned int type, const char *dataFi
 
 unsigned char *generateDataPacket(unsigned char sequence, unsigned char *data, int dataSize, int *packetSize);
 
-long int getFileSize(FILE *file);
+long int getFileSize(FILE *file);   
 
 unsigned char *getData(FILE *fd, long int length);
 

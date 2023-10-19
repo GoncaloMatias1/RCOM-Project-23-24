@@ -2,10 +2,10 @@
 
 #include "link_layer.h"
 
-int alarmTriggered = FALSE;
+int retrans = 0;
+int alarmT = FALSE;
 int timeout = 0;
-int retransmitions = 0;
-int alarmCount = 0;
+int alarmC = 0;
 unsigned char tramaTx = 0;
 unsigned char tramaRx = 1;
 
@@ -36,7 +36,7 @@ unsigned char tramaRx = 1;
 ////////////////////////////////////////////////
 int llopen(LinkLayer connectionParameters) {
     State state = START;
-    int serialPortFd = openAndConfigureSerialPort(connectionParameters.serialPort);  // Renamed 'fd' to 'serialPortFd'
+    int serialPortFd = openAndConfigureSerialPort(connectionParameters.serialPort);
 
     if (serialPortFd < 0) {
         return -1;
@@ -44,19 +44,19 @@ int llopen(LinkLayer connectionParameters) {
 
     unsigned char receivedByte;
     timeout = connectionParameters.timeout;
-    retransmitions = connectionParameters.nRetransmissions;
+    retrans = connectionParameters.nRetransmissions;
 
     switch (connectionParameters.role) {
         case LlTx: {
             (void)signal(SIGALRM, alarmHandler);
 
-            while (retransmitions != 0 && state != STOP_R) {
+            while (retrans != 0 && state != STOP_R) {
                 sendSupervisionFrame(serialPortFd, A_ER, C_SET);
 
                 alarm(connectionParameters.timeout);
-                alarmTriggered = FALSE;
+                alarmT = FALSE;
 
-                while (alarmTriggered == FALSE && state != STOP_R) {
+                while (alarmT == FALSE && state != STOP_R) {
                     if (read(serialPortFd, &receivedByte, 1) > 0) {
                         switch (state) {
                             case START:
@@ -85,7 +85,7 @@ int llopen(LinkLayer connectionParameters) {
                         }
                     }
                 }
-                retransmitions--;
+                retrans--;
             }
 
             if (state != STOP_R) {
@@ -168,12 +168,12 @@ int llwrite(int serialPortFd, const unsigned char *dataBuffer, int dataSize) {
     int currentTransmition = 0;
     int rejected = 0, accepted = 0;
 
-    while (currentTransmition < retransmitions) { 
-        alarmTriggered = FALSE;
+    while (currentTransmition < retrans) { 
+        alarmT = FALSE;
         alarm(timeout);
         rejected = 0;
         accepted = 0;
-        while (alarmTriggered == FALSE && !rejected && !accepted) {
+        while (alarmT == FALSE && !rejected && !accepted) {
 
             write(serialPortFd, frame, framePosition);
             unsigned char result = readControlFrame(serialPortFd);
@@ -296,16 +296,16 @@ int llclose(int fd) {
     (void) signal(SIGALRM, alarmHandler);
 
     // While there are retransmissions left and not in the STOP_R state
-    while (retransmitions != 0 && state != STOP_R) {
+    while (retrans != 0 && state != STOP_R) {
         // Send a DISC frame
         sendSupervisionFrame(fd, A_ER, C_DISC);
         
         // Set an alarm and reset the alarm trigger flag
         alarm(timeout);
-        alarmTriggered = FALSE;
+        alarmT = FALSE;
 
         // While the alarm is not triggered and not in the STOP_R state
-        while (alarmTriggered == FALSE && state != STOP_R) {
+        while (alarmT == FALSE && state != STOP_R) {
             if (read(fd, &byte, 1) > 0) {
                 switch (state) {
                     case START:
@@ -335,7 +335,7 @@ int llclose(int fd) {
             }
         }
 
-        retransmitions--;
+        retrans--;
     }
 
     // If not in the STOP_R state, return an error
@@ -383,15 +383,15 @@ int openAndConfigureSerialPort(const char *serialPort) {
 }
 
 void alarmHandler(int signal) {
-    alarmTriggered = TRUE;
-    alarmCount++;
+    alarmT = TRUE;
+    alarmC++;
 }
 
 unsigned char readControlFrame(int fd) {
     unsigned char byte, cField = 0;
     State state = START;
 
-    while (state != STOP_R && alarmTriggered == FALSE) {
+    while (state != STOP_R && alarmT == FALSE) {
         if (read(fd, &byte, 1) > 0 || 1) {  
             switch (state) {
                 case START:
