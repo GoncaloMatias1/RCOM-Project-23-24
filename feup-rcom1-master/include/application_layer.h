@@ -8,7 +8,7 @@
 // Arguments:
 //   serialPort: Serial port name (e.g., /dev/ttyS0).
 //   role: Application role {"tx", "rx"}.
-//   baudRate: Baudrate of the serial port.
+//   baudrate: Baudrate of the serial port.
 //   nTries: Maximum number of frame retries.
 //   timeout: Frame timeout.
 //   filename: Name of the file to send / receive.

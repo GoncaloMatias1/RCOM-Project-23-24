@@ -18,164 +18,225 @@
 #define OCTET_MULT      256
 #define MAX_PACKET_SIZE 1024
 
-// --- SEND FILE ---
+/******************************    SEND FILE    ******************************/
 
 int send_control_packet(uint8_t control, const char* filename, size_t file_size) {
     size_t filename_length = strlen(filename) + 1;
-
     if (filename_length > 0xff) {
-        perror("Filename length exceeds limit");
+        fprintf(stderr, "Filename too long (needs to fit in a byte, including '\\0')\n");
         return -1;
     }
 
-    uint8_t packet[5 + filename_length + sizeof(size_t)];
-    int packet_index = 0;
+    size_t packet_length = 5 + filename_length + sizeof(size_t);
+    uint8_t packet[packet_length];
 
-    packet[packet_index++] = control;
+    packet[0] = control;
 
-    packet[packet_index++] = FILE_SIZE;
-    packet[packet_index++] = (uint8_t) sizeof(size_t);
-    memcpy(&packet[packet_index], &file_size, sizeof(size_t));
-    packet_index += sizeof(size_t);
+    packet[1] = FILE_SIZE;
+    packet[2] = (uint8_t) sizeof(size_t);
+    memcpy(packet + 3, &file_size, sizeof(size_t));
 
-    packet[packet_index++] = FILE_NAME;
-    packet[packet_index++] = (uint8_t) filename_length;
-    memcpy(&packet[packet_index], filename, filename_length);
+    packet[3 + sizeof(size_t)] = FILE_NAME;
+    packet[4 + sizeof(size_t)] = (uint8_t) filename_length;
+    memcpy(packet + 5 + sizeof(size_t), filename, filename_length);
 
-    return (llwrite(packet, 5 + filename_length + sizeof(size_t)) != -1) ? 0 : -1;
+    if (llwrite(packet, packet_length) == -1) {
+        fprintf(stderr, "Failed to send control packet\n");
+        return -1;
+    }
+    return 0;
 }
 
-int send_data_packet(const uint8_t* data, size_t data_size) {
-    uint8_t packet[3 + data_size];
+int send_data_packet(const uint8_t* data, size_t length) {
+    size_t packet_length = 3 + length;
+    uint8_t packet[packet_length];
 
     packet[0] = CONTROL_DATA;
-    packet[1] = (uint8_t) (data_size / OCTET_MULT);
-    packet[2] = (uint8_t) (data_size % OCTET_MULT);
-    memcpy(&packet[3], data, data_size);
+    packet[1] = (uint8_t) (length / OCTET_MULT);
+    packet[2] = (uint8_t) (length % OCTET_MULT);
+    memcpy(packet + 3, data, length);
 
-    return (llwrite(packet, 3 + data_size) != -1) ? 0 : -1;
+    if (llwrite(packet, packet_length) == -1) {
+        fprintf(stderr, "Failed to send data packet\n");
+        return -1;
+    }
+    return 0;
 }
 
-int transmit_file(const char* path) {
-    FILE* file_ptr = fopen(path, "rb");
-    if (!file_ptr) {
-        perror("Error opening file");
+int send_file(const char* filename) {
+    FILE* fs;
+    if ((fs = fopen(filename, "rb")) == NULL) {
+        fprintf(stderr, "Error opening file\n");
         return -1;
     }
 
-    fseek(file_ptr, 0, SEEK_END);
-    size_t f_size = ftell(file_ptr);
-    rewind(file_ptr);
+    fseek(fs, 0, SEEK_END);
+    size_t file_size = ftell(fs);
+    fseek(fs, 0, SEEK_SET);
 
-    if (send_control_packet(CONTROL_START, path, f_size) == -1) {
-        fclose(file_ptr);
+    if (send_control_packet(CONTROL_START, filename, file_size) == -1) {
+        fprintf(stderr, "Failed to send start control packet\n");
         return -1;
     }
 
-    uint8_t buffer[MAX_PACKET_SIZE - 3];
+    uint8_t buf[MAX_PACKET_SIZE - 3];
     size_t bytes_read;
-
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file_ptr))) {
-        if (send_data_packet(buffer, bytes_read) == -1) {
-            fclose(file_ptr);
+    while ((bytes_read = fread(buf, 1, MAX_PACKET_SIZE - 3, fs)) > 0) {
+        if (send_data_packet(buf, bytes_read) == -1) {
+            fprintf(stderr, "Failed to send data packet\n");
             return -1;
         }
     }
 
-    if (send_control_packet(CONTROL_END, path, f_size) == -1) {
-        fclose(file_ptr);
+    if (send_control_packet(CONTROL_END, filename, file_size) == -1) {
+        fprintf(stderr, "Failed to send end control packet\n");
         return -1;
     }
 
-    fclose(file_ptr);
+    fclose(fs);
     return 0;
 }
 
-// --- RECEIVE FILE ---
+/******************************    RECEIVE FILE    ******************************/
 
-int process_control_packet(uint8_t control, uint8_t* buffer, size_t* f_size, char* recv_filename) {
-    int read_size;
-    if ((read_size = llread(buffer)) < 0) return -1;
+int read_control_packet(uint8_t control, uint8_t* buf, size_t* file_size, char* received_filename) {
+    if (file_size == NULL) {
+        fprintf(stderr, "Invalid file size pointer\n");
+        return -1;
+    }
 
-    if (buffer[0] != control) return -1;
+    int size;
+    if ((size = llread(buf)) < 0) {
+        fprintf(stderr, "Failed to read control packet\n");
+        return -1;
+    }
 
-    size_t offset = 1;
+    if (buf[0] != control) {
+        fprintf(stderr, "Invalid control packet\n");
+        return -1;
+    }
+
     uint8_t type;
-    size_t len;
+    size_t length;
+    size_t offset = 1;
 
-    while (offset < read_size) {
-        type = buffer[offset++];
-        len = buffer[offset++];
+    while (offset < size) {
+        type = buf[offset++];
+        if (type != FILE_SIZE && type != FILE_NAME) {
+            fprintf(stderr, "Invalid control packet type\n");
+            return -1;
+        }
 
         if (type == FILE_SIZE) {
-            memcpy(f_size, &buffer[offset], len);
-            offset += len;
-        } else if (type == FILE_NAME) {
-            memcpy(recv_filename, &buffer[offset], len);
-            offset += len;
+            length = buf[offset++];
+            if (length != sizeof(size_t)) {
+                fprintf(stderr, "Invalid file size length\n");
+                return -1;
+            }
+            memcpy(file_size, buf + offset, sizeof(size_t));
+            offset += sizeof(size_t);
         } else {
-            return -1;
+            length = buf[offset++];
+            if (length > MAX_PACKET_SIZE - offset) {
+                fprintf(stderr, "Invalid file name length\n");
+                return -1;
+            }
+            memcpy(received_filename, buf + offset, length);
+            offset += length;
         }
     }
 
     return 0;
 }
 
-int receive_data(uint8_t* buffer) {
-    int read_size = llread(buffer);
+int receive_file(const char* filename) {
+    uint8_t buf[MAX_PACKET_SIZE];
+    size_t file_size;
 
-    if (read_size < 0 || buffer[0] != CONTROL_DATA) return -1;
+    // TODO: ask teacher if we should use args filename or filename from control packet
+    char received_filename[0xff];
 
-    return (buffer[1] * OCTET_MULT + buffer[2]);
-}
-
-int receive_file(const char* path) {
-    uint8_t buffer[MAX_PACKET_SIZE];
-    size_t f_size;
-    char recv_filename[MAX_PACKET_SIZE];
-
-    if (process_control_packet(CONTROL_START, buffer, &f_size, recv_filename) < 0) return -1;
-
-    FILE* file_ptr = fopen(path, "wb");
-    if (!file_ptr) return -1;
-
-    int bytes_received;
-
-    while ((bytes_received = receive_data(buffer)) > 0) {
-        fwrite(&buffer[3], 1, bytes_received, file_ptr);
+    if (read_control_packet(CONTROL_START, buf, &file_size, received_filename) == -1) {
+        fprintf(stderr, "Failed to read start control packet\n");
+        return -1;
     }
 
-    fclose(file_ptr);
+    FILE* fs;
+    if ((fs = fopen(filename, "wb")) == NULL) {
+        fprintf(stderr, "Error opening file\n");
+        return -1;
+    }
+
+    int size;
+    while ((size = llread(buf)) > 0) {
+        if (buf[0] == CONTROL_END) {
+            break;
+        }
+
+        if (buf[0] != CONTROL_DATA) {
+            fprintf(stderr, "Invalid data packet\n");
+            return -1;
+        }
+
+        size_t length = buf[1] * OCTET_MULT + buf[2];
+        uint8_t* data = (uint8_t*)malloc(length);
+        memcpy(data, buf + 3, size - 3);
+
+        if (fwrite(data, sizeof(uint8_t), length, fs) != length) {
+            fprintf(stderr, "Failed to write to file\n");
+            return -1;
+        }
+
+        free(data);
+    }
+
+    fclose(fs);
     return 0;
 }
-
-// --- MAIN APPLICATION FUNCTION ---
 
 void applicationLayer(const char *serialPort, const char *role, int baudRate,
                       int nTries, int timeout, const char *filename)
 {
-    if (!serialPort || strncmp(serialPort, "/dev/ttyS", 9)) {
-        perror("Invalid serial port");
+    if (strncmp(serialPort, "/dev/ttyS", 9) != 0) {
+        fprintf(stderr, "Invalid serial port: %s\n", serialPort);
+        return;
+    }
+
+    if ((strcmp(role, "tx") != 0) && (strcmp(role, "rx") != 0)) {
+        fprintf(stderr, "Invalid role: %s\n", role);
         return;
     }
 
     LinkLayer link_layer;
-    strncpy(link_layer.serialPort, serialPort, sizeof(link_layer.serialPort));
-    link_layer.role = (!role || strcmp(role, "tx")) ? LlTx : LlRx;
+    strncpy(link_layer.serialPort, serialPort, 50);
+    link_layer.role = strcmp(role, "tx") == 0 ? LlTx : LlRx;
     link_layer.baudRate = baudRate;
     link_layer.nRetransmissions = nTries;
     link_layer.timeout = timeout;
 
-    if (llopen(link_layer) < 0) {
-        perror("Connection setup failed");
+    if (llopen(link_layer) == -1) {
+        fprintf(stderr, "Failed to establish connection\n");
         return;
     }
+    printf("Connection established\n");
 
     if (link_layer.role == LlTx) {
-        if (transmit_file(filename) < 0) perror("File transmission failed");
+        if (send_file(filename) == -1) {
+            fprintf(stderr, "Failed to send file\n");
+            return;
+        }
+        printf("File sent\n");
     } else {
-        if (receive_file(filename) < 0) perror("File reception failed");
+        if (receive_file(filename) == -1) {
+            fprintf(stderr, "Failed to receive file\n");
+            return;
+        }
+        printf("File received\n");
     }
 
-    if (llclose(0) < 0) perror("Failed to close connection");
+    if (llclose(0) == -1) {
+        fprintf(stderr, "Failed to close connection\n");
+        return;
+    }
+    printf("Connection closed\n");
 }
