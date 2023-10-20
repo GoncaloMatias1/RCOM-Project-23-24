@@ -1,0 +1,5 @@
+penguin-received.gif
+*.o
+
+compile_commands.json
+.cache/
