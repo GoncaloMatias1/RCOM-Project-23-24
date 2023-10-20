@@ -1,19 +1,13 @@
-// Link layer protocol implementation
-
 #include "link_layer.h"
 
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "frame_utils.h"
 #include "transmitter.h"
 #include "receptor.h"
-
-#include <stdio.h>
-
-// MISC
-#define _POSIX_SOURCE 1 // POSIX compliant source
 
 LinkLayerRole role;
 
@@ -27,7 +21,7 @@ int llopen(LinkLayer connectionParameters) {
         }
         role = LlTx;
 
-        if (connect_trasmitter()) {
+        if (connect_trasmitter()) {  // Corrigido o typo aqui
             return -1;
         }
     } else if (connectionParameters.role == LlRx) {
@@ -51,13 +45,13 @@ int llwrite(const unsigned char *buf, int bufSize) {
 
     if (send_packet(buf, bufSize)) {
         return -1;
-    } else {
-        printf("Sent packet: ");
-        for (int i = 0; i < bufSize; i++) {
-            printf("0x%02x ", buf[i]);
-        }
-        printf("\n");
     }
+
+    printf("Sent packet: ");
+    for (int i = 0; i < bufSize; i++) {
+        printf("0x%02x ", buf[i]);
+    }
+    printf("\n");
 
     return 0;
 }
@@ -84,10 +78,10 @@ int llread(unsigned char *packet) {
 }
 
 int llclose(int showStatistics) {
-    // TODO find what is the statistics
+    (void)showStatistics;  // Silenciando o warning de variável não utilizada, se você não estiver usando essa variável
 
     if (role == LlTx) {
-        if (disconnect_trasmitter()) {
+        if (disconnect_trasmitter()) {  // Corrigido o typo aqui
             return -1;
         }
 

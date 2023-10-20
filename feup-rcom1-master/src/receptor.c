@@ -15,6 +15,15 @@ struct {
 
 int receptor_num = 1;
 
+// Função auxiliar para escrever e verificar o tamanho
+int safe_write(int fd, const void* buffer, size_t size) {
+    int result = write(fd, buffer, size);
+    if (result != (int)size) {
+        return 1;
+    }
+    return 0;
+}
+
 int open_receptor(char* serial_port, int baudrate) {
     receptor.fd = open(serial_port, O_RDWR | O_NOCTTY);
     if (receptor.fd < 0) {
@@ -22,6 +31,7 @@ int open_receptor(char* serial_port, int baudrate) {
     }
 
     if (tcgetattr(receptor.fd, &receptor.oldtio) == -1) {
+        close(receptor.fd);
         return 2;
     }
 
@@ -30,7 +40,6 @@ int open_receptor(char* serial_port, int baudrate) {
     receptor.newtio.c_cflag = baudrate | CS8 | CLOCAL | CREAD;
     receptor.newtio.c_iflag = IGNPAR;
     receptor.newtio.c_oflag = 0;
-
     receptor.newtio.c_lflag = 0;
     receptor.newtio.c_cc[VTIME] = 0;
     receptor.newtio.c_cc[VMIN] = 0;
@@ -38,6 +47,7 @@ int open_receptor(char* serial_port, int baudrate) {
     tcflush(receptor.fd, TCIOFLUSH);
 
     if (tcsetattr(receptor.fd, TCSANOW, &receptor.newtio) == -1) {
+        close(receptor.fd);
         return 3;
     }
 
@@ -50,10 +60,13 @@ int close_receptor() {
     }
 
     if (tcsetattr(receptor.fd, TCSANOW, &receptor.oldtio) == -1) {
+        close(receptor.fd);
         return 2;
     }
 
-    close(receptor.fd);
+    if (close(receptor.fd) < 0) {
+        return 3;
+    }
     return 0;
 }
 
@@ -61,18 +74,14 @@ int connect_receptor() {
     while (read_supervision_frame(receptor.fd, TX_ADDRESS, SET_CONTROL, NULL) != 0) {}
 
     build_supervision_frame(receptor.fd, RX_ADDRESS, UA_CONTROL);
-    if (write(receptor.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
-        return 1;
-    }
-
-    return 0;
+    return safe_write(receptor.fd, data_holder.buffer, data_holder.length);
 }
 
 int disconnect_receptor() {
     while (read_supervision_frame(receptor.fd, TX_ADDRESS, DISC_CONTROL, NULL) != 0) {}
 
     build_supervision_frame(receptor.fd, RX_ADDRESS, DISC_CONTROL);
-    if (write(receptor.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    if (safe_write(receptor.fd, data_holder.buffer, data_holder.length)) {
         return 1;
     }
 
@@ -85,7 +94,7 @@ int receive_packet(uint8_t* packet) {
     sleep(1);
     if (read_information_frame(receptor.fd, TX_ADDRESS, I_CONTROL(1 - receptor_num), I_CONTROL(receptor_num)) != 0) {
         build_supervision_frame(receptor.fd, RX_ADDRESS, RR_CONTROL(1 - receptor_num));
-        if (write(receptor.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+        if (safe_write(receptor.fd, data_holder.buffer, data_holder.length)) {
             return -1;
         }
 
@@ -103,7 +112,7 @@ int receive_packet(uint8_t* packet) {
 
     if (tmp_bcc2 != bcc2) {
         build_supervision_frame(receptor.fd, RX_ADDRESS, REJ_CONTROL(1 - receptor_num));
-        if (write(receptor.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+        if (safe_write(receptor.fd, data_holder.buffer, data_holder.length)) {
             return -1;
         }
 
@@ -112,7 +121,7 @@ int receive_packet(uint8_t* packet) {
 
     memcpy(packet, data, data_size);
     build_supervision_frame(receptor.fd, RX_ADDRESS, RR_CONTROL(receptor_num));
-    if (write(receptor.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    if (safe_write(receptor.fd, data_holder.buffer, data_holder.length)) {
         return -1;
     }
 
