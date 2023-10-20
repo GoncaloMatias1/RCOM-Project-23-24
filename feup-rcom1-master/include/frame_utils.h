@@ -1,23 +1,25 @@
 #ifndef _FRAME_UTILS_H_
 #define _FRAME_UTILS_H_
 
+#include <stdint.h>
+#include <stdlib.h>
+
 #define FLAG            0x7E
 #define TX_ADDRESS      0x03
 #define RX_ADDRESS      0x01
 #define SET_CONTROL     0x03
 #define UA_CONTROL      0x07
+
 #define RR_CONTROL(n)   ((n == 0) ? 0x05 : 0x85)
 #define REJ_CONTROL(n)  ((n == 0) ? 0x01 : 0x81)
 #define DISC_CONTROL    0x0B
+
 #define I_CONTROL(n)    ((n == 0) ? 0x00 : 0x40)
 #define ESC             0x7D
 #define STUFF_XOR       0x20
 
 #define DATA_SIZE           1024
 #define STUFFED_DATA_SIZE   (DATA_SIZE * 2 + 2)
-
-#include <stdint.h>
-#include <stdlib.h>
 
 typedef enum {
     START,
@@ -28,17 +30,20 @@ typedef enum {
     STOP,
 } state_t;
 
-extern struct data_holder_s {
+struct data_holder_s {
     // +5 for other frame fields (address, control, bcc1, flag) 
     uint8_t buffer[STUFFED_DATA_SIZE + 5];
     size_t length;
-} data_holder;
+};
 
-extern struct alarm_config_s {
+struct alarm_config_s {
     volatile int count;
     int timeout;
     int num_retransmissions;
-} alarm_config;
+};
+
+extern struct data_holder_s data_holder;
+extern struct alarm_config_s alarm_config;
 
 size_t stuff_data(const uint8_t* data, size_t length, uint8_t bcc2, uint8_t* stuffed_data);
 

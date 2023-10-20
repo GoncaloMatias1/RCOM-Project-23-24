@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-// TODO: add timeouts to receptor?
+// TODO: Adicionar timeouts para o receptor?
 
 int open_receptor(char* serial_port, int baudrate);
 
