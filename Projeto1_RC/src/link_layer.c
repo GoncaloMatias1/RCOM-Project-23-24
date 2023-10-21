@@ -265,7 +265,7 @@ int readInformation(int fd, uint8_t address, uint8_t control, uint8_t repeatedCt
     memset(dh.buffer, 0, STUFFED_DATA_SIZE + 5);
 
     while (st != STOP) {
-        if (alarm_config.count > alarm_config.numRetransmissions) {
+        if (alarm_config.count > alarm_config.num_retransmissions) {
             return 1; // Transmission failed
         }
 
@@ -322,11 +322,16 @@ int readInformation(int fd, uint8_t address, uint8_t control, uint8_t repeatedCt
                     dh.buffer[dh.length++] = byte;
                 }
                 break;
+
+            case STOP:
+                // Nothing to do
+                break;
         }
     }
 
     return 0; // Successful frame reception
 }
+
 
 
 int receptor_num = 1;

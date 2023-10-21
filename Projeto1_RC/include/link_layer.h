@@ -1,5 +1,6 @@
 // Link layer header.
 // NOTE: This file must not be changed.
+// Aníbal Sousa and Gonçalo Matias
 
 #ifndef _LINK_LAYER_H_
 #define _LINK_LAYER_H_
