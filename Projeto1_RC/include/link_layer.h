@@ -13,8 +13,8 @@
 
 int open_transmitter(char* serial_port, int baudrate, int timeout, int nRetransmissions);
 int close_transmitter();
-int connect_trasmitter();
-int disconnect_trasmitter();
+int connect_transmitter();
+int disconnect_transmitter();
 int send_packet(const uint8_t* packet, size_t length);
 
 // ==============================

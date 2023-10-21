@@ -23,7 +23,7 @@ int llopen(LinkLayer connectionParameters) {
         }
         role = LlTx;
 
-        if (connect_trasmitter()) {
+        if (connect_transmitter()) {
             return -1;
         }
     } else if (connectionParameters.role == LlRx) {
@@ -83,7 +83,7 @@ int llclose(int showStatistics) {
     // TODO find what is the statistics
 
     if (role == LlTx) {
-        if (disconnect_trasmitter()) {
+        if (disconnect_transmitter()) {
             return -1;
         }
 
@@ -454,8 +454,6 @@ void alarm_handler(int signo) {
     }
     alarm(alarm_config.timeout);
 
-    // if alarm count is > than num_retransmissions,
-    // it will try to write one more time but it will fail
     if (alarm_config.count <= alarm_config.num_retransmissions)
         printf("Alarm #%d\n", alarm_config.count);
 }
@@ -509,7 +507,7 @@ int close_transmitter() {
     return 0;
 }
 
-int connect_trasmitter() {
+int connect_transmitter() {
     alarm_config.count = 0;
 
     build_supervision_frame(transmitter.fd, TX_ADDRESS, SET_CONTROL);
@@ -519,7 +517,6 @@ int connect_trasmitter() {
     }
     alarm(alarm_config.timeout);
 
-    // Ask teacher if is 1st try + 3 alarm tries or 3 tries as a whole
     if (read_supervision_frame(transmitter.fd, RX_ADDRESS, UA_CONTROL, NULL) != 0) {
         alarm(0);
         return 2;
@@ -529,7 +526,7 @@ int connect_trasmitter() {
     return 0;
 }
 
-int disconnect_trasmitter() {
+int disconnect_transmitter() {
     alarm_config.count = 0;
 
     build_supervision_frame(transmitter.fd, TX_ADDRESS, DISC_CONTROL);
@@ -538,7 +535,6 @@ int disconnect_trasmitter() {
     }
     alarm(alarm_config.timeout);
 
-    // TODO: update this to new alarm handling
     int flag = 0;
     for (;;) {
         if (read_supervision_frame(transmitter.fd, RX_ADDRESS, DISC_CONTROL, NULL) == 0) {
@@ -576,11 +572,9 @@ int send_packet(const uint8_t* packet, size_t length) {
     int res = -1;
     uint8_t rej_ctrl = REJ_CONTROL(1 - transmitter_num);
 
-    // if is REJ frame, it will try to send again
     while (res != 0) {
         res = read_supervision_frame(transmitter.fd, RX_ADDRESS, RR_CONTROL(1 - transmitter_num), &rej_ctrl);
         if (res == 1) {
-            // alarm count is > than num_retransmissions
             break;
         }
     }
