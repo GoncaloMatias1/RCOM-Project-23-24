@@ -18,26 +18,33 @@
 
 /******************************    SEND FILE    ******************************/
 
-int send_control_packet(uint8_t control, const char* filename, size_t file_size) {
-    size_t filename_length = strlen(filename) + 1;
+size_t create_control_packet(uint8_t control, const char* filename, size_t file_size, uint8_t* packet) {
+    const size_t file_length = strlen(filename);
 
-    if (filename_length > 0xff) {
-        fprintf(stderr, "Filename exceeds max length\n");
-        return -1;
+    if (file_length > 0xff || (file_length + sizeof(size_t) + 1) > MAX_PACKET_SIZE) {
+        fprintf(stderr, "Invalid control packet parameters\n");
+        return 0;
     }
-
-    size_t packet_length = 5 + filename_length + sizeof(size_t);
-    uint8_t packet[packet_length];
 
     packet[0] = control;
     packet[1] = FILE_SIZE;
-    packet[2] = (uint8_t) sizeof(size_t);
+    packet[2] = sizeof(size_t);
     memcpy(packet + 3, &file_size, sizeof(size_t));
     packet[3 + sizeof(size_t)] = FILE_NAME;
-    packet[4 + sizeof(size_t)] = (uint8_t) filename_length;
-    memcpy(packet + 5 + sizeof(size_t), filename, filename_length);
+    packet[4 + sizeof(size_t)] = (uint8_t) file_length;
+    memcpy(packet + 5 + sizeof(size_t), filename, file_length);
 
-    return llwrite(packet, packet_length) != -1 ? 0 : -1;
+    return 5 + sizeof(size_t) + file_length;
+}
+
+int send_control_packet(uint8_t control, const char* filename, size_t file_size) {
+    uint8_t packet[MAX_PACKET_SIZE];
+    size_t plength = create_control_packet(control, filename, file_size, packet);
+
+    if (plength == 0) {
+        return -1;
+    }
+    return llwrite(packet, plength) != -1 ? 0 : -1;
 }
 
 int send_data_packet(const uint8_t* data, size_t length) {
@@ -50,32 +57,32 @@ int send_data_packet(const uint8_t* data, size_t length) {
     return llwrite(packet, length + 3) != -1 ? 0 : -1;
 }
 
-int send_file(const char* filename) {
-    FILE* fs = fopen(filename, "rb");
-    if (!fs) {
+int send(const char* filename) {
+    FILE* f = fopen(filename, "rb");
+    if (!f) {
         perror("Error opening file");
         return -1;
     }
 
-    fseek(fs, 0, SEEK_END);
-    size_t file_size = ftell(fs);
-    fseek(fs, 0, SEEK_SET);
+    fseek(f, 0, SEEK_END);
+    size_t file_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
 
     if (send_control_packet(CONTROL_START, filename, file_size) == -1) {
-        fclose(fs);
+        fclose(f);
         return -1;
     }
 
     uint8_t buf[MAX_PACKET_SIZE - 3];
     size_t bytes_read;
-    while ((bytes_read = fread(buf, 1, sizeof(buf), fs)) > 0) {
+    while ((bytes_read = fread(buf, 1, sizeof(buf), f)) > 0) {
         if (send_data_packet(buf, bytes_read) == -1) {
-            fclose(fs);
+            fclose(f);
             return -1;
         }
     }
 
-    fclose(fs);
+    fclose(f);
     return send_control_packet(CONTROL_END, filename, file_size);
 }
 
@@ -110,7 +117,7 @@ int read_control_packet(uint8_t control, uint8_t* buf, size_t* file_size, char* 
     return 0;
 }
 
-int receive_file(const char* filename) {
+int receive(const char* filename) {
     uint8_t buf[MAX_PACKET_SIZE];
     size_t file_size;
 
@@ -141,39 +148,39 @@ int receive_file(const char* filename) {
     return 0;
 }
 
-void applicationLayer(const char *serialPort, const char *role, int baudRate, int nTries, int timeout, const char *filename) {
-    if (!serialPort || strncmp(serialPort, "/dev/ttyS", 9) != 0 || !role || (strcmp(role, "tx") && strcmp(role, "rx"))) {
-        fprintf(stderr, "Invalid arguments\n");
+void applicationLayer(const char *portName, const char *mode, int baudRate,
+                            int maxRetries, int customTimeout, const char *dataFileName)
+{
+    LinkLayer ll;
+    strcpy(ll.serialPort, portName);
+    ll.role = (strcmp(mode, "tx") == 0) ? LlTx : LlRx;
+    ll.baudRate = baudRate;
+    ll.nRetransmissions = maxRetries;
+    ll.timeout = customTimeout;
+
+    int fd = llopen(ll);
+    if (fd < 0) {
+        perror("Connection error\n");
         return;
     }
 
-    LinkLayer link_layer = {
-        .role = strcmp(role, "tx") == 0 ? LlTx : LlRx,
-        .baudRate = baudRate,
-        .nRetransmissions = nTries,
-        .timeout = timeout
-    };
-    strncpy(link_layer.serialPort, serialPort, sizeof(link_layer.serialPort) - 1);
-
-    if (llopen(link_layer) == -1) {
-        perror("Connection establishment error");
-        return;
-    }
-
-    if (link_layer.role == LlTx) {
-        if (send_file(filename) == -1) {
-            perror("File transmission unsuccessful");
+    switch (ll.role) {
+    case LlTx: {
+        if (send(dataFileName) < 0) {
+            printf(stderr, "Failed to send file\n");
             return;
         }
-    } else {
-        if (receive_file(filename) == -1) {
-            perror("Error in file reception");
+        break;
+    }
+    case LlRx: {
+        if (receive(dataFileName) < 0) {
+            printf(stderr, "Failed to receive file\n");
             return;
+        break;
         }
     }
-
-    if (llclose(0) == -1) {
-        perror("Connection closure unsuccessful");
-        return;
     }
+    llclose(0);
 }
+
+
