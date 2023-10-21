@@ -16,8 +16,6 @@
 #define OCTET_MULT      256
 #define MAX_PACKET_SIZE 1024
 
-/******************************    SEND FILE    ******************************/
-
 size_t create_control_packet(uint8_t control, const char* filename, size_t file_size, uint8_t* packet) {
     const size_t file_length = strlen(filename);
 
@@ -85,8 +83,6 @@ int send(const char* filename) {
     fclose(f);
     return send_control_packet(CONTROL_END, filename, file_size);
 }
-
-/******************************    RECEIVE FILE    ******************************/
 
 int read_control_packet(uint8_t control, uint8_t* buf, size_t* file_size, char* received_filename) {
     int size = llread(buf);
@@ -181,3 +177,4 @@ void applicationLayer(const char *portName, const char *mode, int baudRate,
     }
     llclose(0);
 }
+

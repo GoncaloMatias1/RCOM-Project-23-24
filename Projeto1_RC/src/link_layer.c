@@ -5,41 +5,61 @@
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <fcntl.h>
+
 
 #include <stdio.h>
 
-// MISC
-#define _POSIX_SOURCE 1 // POSIX compliant source
 
+#define _POSIX_SOURCE 1 // POSIX compliant source
+struct data_holder dh;
+struct alarm_config_s alarm_config;
+
+struct {
+    int fd;
+    struct termios oldtio, newtio;
+} transmitter;
+
+struct {
+    int fd;
+    struct termios oldtio, newtio;
+} receptor;
+
+////////////////////////////////////////////////
+// LLOPEN
+////////////////////////////////////////////////
 LinkLayerRole role;
 
-int llopen(LinkLayer connectionParameters) {
-    if (connectionParameters.role == LlTx) {
-        if (open_transmitter(connectionParameters.serialPort,
-                    connectionParameters.baudRate,
-                    connectionParameters.timeout,
-                    connectionParameters.nRetransmissions)) {
-            return -1;
-        }
-        role = LlTx;
+int llopen(LinkLayer cp) {
+    int ret = 1;
 
-        if (connect_transmitter()) {
-            return -1;
-        }
-    } else if (connectionParameters.role == LlRx) {
-        if (open_receptor(connectionParameters.serialPort, connectionParameters.baudRate)) {
-            return -1;
-        }
-        role = LlRx;
-
-        if (connect_receptor()) {
-            return -1;
-        }
+    switch (cp.role) {
+        case LlTx:
+            if (open_transmitter(cp.serialPort, cp.baudRate, cp.timeout, cp.nRetransmissions) || connect_transmitter()) {
+                ret = -1;
+            }
+            role = LlTx;
+            break;
+        case LlRx:
+            if (open_receptor(cp.serialPort, cp.baudRate) || connect_receptor()) {
+                ret = -1;
+            }
+            role = LlRx;
+            break;
+        default:
+            ret = -1;
+            break;
     }
 
-    return 1;
+    return ret;
 }
 
+////////////////////////////////////////////////
+// LLWRITE
+////////////////////////////////////////////////
 int llwrite(const unsigned char *buf, int bufSize) {
     if (role == LlRx) {
         return 1;
@@ -58,6 +78,10 @@ int llwrite(const unsigned char *buf, int bufSize) {
     return 0;
 }
 
+
+////////////////////////////////////////////////
+// LLREAD
+////////////////////////////////////////////////
 int llread(unsigned char *packet) {
     if (role == LlTx) {
         return 1;
@@ -79,40 +103,32 @@ int llread(unsigned char *packet) {
     return size;
 }
 
+////////////////////////////////////////////////
+// LLCLOSE
+////////////////////////////////////////////////
 int llclose(int showStatistics) {
-
-    if (role == LlTx) {
-        if (disconnect_transmitter()) {
-            return -1;
-        }
-
-        if (close_transmitter()) {
-            return -1;
-        }
-    } else if (role == LlRx) {
-        if (disconnect_receptor()) {
-            return -1;
-        }
-
-        if (close_receptor()) {
-            return -1;
-        }
+    int ret = 1;
+    switch (role) {
+        case LlTx:
+            if (disconnect_transmitter() || close_transmitter()) {
+                ret = -1;
+            }
+            break;
+        case LlRx:
+            if (disconnect_receptor() || close_receptor()) {
+                ret = -1;
+            }
+            break;
+        default:
+            ret = -1;
+            break;
     }
 
-    return 1;
+    return ret;
 }
 
 
-//FRAME UTILS
-
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-struct data_holder_s data_holder;
-struct alarm_config_s alarm_config;
-
-size_t stuff_data(const uint8_t* data, size_t length, uint8_t bcc2, uint8_t* stuffed_data) {
+size_t transmission_stuff_data(const uint8_t* data, size_t length, uint8_t bcc2, uint8_t* stuffed_data) {
     size_t stuffed_length = 0;
 
     for (int i = 0; i < length; i++) {
@@ -134,7 +150,7 @@ size_t stuff_data(const uint8_t* data, size_t length, uint8_t bcc2, uint8_t* stu
     return stuffed_length;
 }
 
-size_t destuff_data(const uint8_t* stuffed_data, size_t length, uint8_t* data, uint8_t* bcc2) {
+size_t transmission_destuff_data(const uint8_t* stuffed_data, size_t length, uint8_t* data, uint8_t* bcc2) {
     uint8_t destuffed_data[DATA_SIZE + 1];
     size_t idx = 0;
 
@@ -153,87 +169,86 @@ size_t destuff_data(const uint8_t* stuffed_data, size_t length, uint8_t* data, u
     return idx - 1;
 }
 
-void build_supervision_frame(int fd, uint8_t address, uint8_t control) {
-    data_holder.buffer[0] = FLAG;
-    data_holder.buffer[1] = address;
-    data_holder.buffer[2] = control;
-    data_holder.buffer[3] = address ^ control;
-    data_holder.buffer[4] = FLAG;
-
-    data_holder.length = 5;
+void supervision_frame_aux(int fd, uint8_t address, uint8_t control) {
+    dh.buffer[0] = FLAG;
+    dh.buffer[1] = address;
+    dh.buffer[2] = control;
+    dh.buffer[3] = address ^ control;
+    dh.buffer[4] = FLAG;
+    dh.length = 5;
 }
 
-void build_information_frame(int fd, uint8_t address, uint8_t control, const uint8_t* packet, size_t packet_length) {
+void buildInformation(int fd, uint8_t address, uint8_t control, const uint8_t* packet, size_t packet_length) {
     uint8_t bcc2 = 0;
     for (size_t i = 0; i < packet_length; i++) {
         bcc2 ^= packet[i];
     }
 
     uint8_t stuffed_data[STUFFED_DATA_SIZE];
-    size_t stuffed_length = stuff_data(packet, packet_length, bcc2, stuffed_data);
+    size_t stuffed_length = transmission_stuff_data(packet, packet_length, bcc2, stuffed_data);
 
-    memcpy(data_holder.buffer + 4, stuffed_data, stuffed_length);
+    memcpy(dh.buffer + 4, stuffed_data, stuffed_length);
 
-    data_holder.buffer[0] = FLAG;
-    data_holder.buffer[1] = address;
-    data_holder.buffer[2] = control;
-    data_holder.buffer[3] = address ^ control;
-    data_holder.buffer[4 + stuffed_length] = FLAG;
-    data_holder.length = 4 + stuffed_length + 1;
+    dh.buffer[0] = FLAG;
+    dh.buffer[1] = address;
+    dh.buffer[2] = control;
+    dh.buffer[3] = address ^ control;
+    dh.buffer[4 + stuffed_length] = FLAG;
+    dh.length = 4 + stuffed_length + 1;
 }
 
-int read_supervision_frame(int fd, uint8_t address, uint8_t control, uint8_t* rej_ctrl) {
+int readSupervision(int fd, uint8_t address, uint8_t control, uint8_t* rej_ctrl) {
     uint8_t byte;
-    state_t state = START;
+    state st = START;
 
     uint8_t is_rej;
-    while (state != STOP) {
+    while (st != STOP) {
         if (alarm_config.count > alarm_config.num_retransmissions) {
             return 1;
         }
         if (read(fd, &byte, 1) != 1) {
             continue;
         }
-        if (state == START) {
+        if (st == START) {
             if (byte == FLAG) {
-                state = FLAG_RCV;
+                st = FLAG_RCV;
             }
-        } else if (state == FLAG_RCV) {
+        } else if (st == FLAG_RCV) {
             is_rej = 0;
             if (byte == address) {
-                state = A_RCV;
+                st = A_RCV;
             } else if (byte != FLAG) {
-                state = START;
+                st = START;
             }
-        } else if (state == A_RCV) {
+        } else if (st == A_RCV) {
             if (rej_ctrl != NULL) {
                 if (byte == *rej_ctrl) {
                     is_rej = 1;
                 }
             }
             if (byte == control || is_rej) {
-                state = C_RCV;
+                st = C_RCV;
             } else if (byte == FLAG) {
-                state = FLAG_RCV;
+                st = FLAG_RCV;
             } else {
-                state = START;
+                st = START;
             }
-        } else if (state == C_RCV) {
+        } else if (st == C_RCV) {
             if ((!is_rej && byte == (address ^ control)) || (is_rej && byte == (address ^ *rej_ctrl))) {
-                state = BCC_OK;
+                st = BCC_OK;
             } else if (byte == FLAG) {
-                state = FLAG_RCV;
+                st = FLAG_RCV;
             } else {
-                state = START;
+                st = START;
             }
-        } else if (state == BCC_OK) {
+        } else if (st == BCC_OK) {
             if (byte == FLAG) {
                 if (is_rej) {
                     return 2;
                 }
-                state = STOP;
+                st = STOP;
             } else {
-                state = START;
+                st = START;
             }
         }
     }
@@ -241,83 +256,78 @@ int read_supervision_frame(int fd, uint8_t address, uint8_t control, uint8_t* re
     return 0;
 }
 
-int read_information_frame(int fd, uint8_t address, uint8_t control, uint8_t repeated_ctrl) {
+int readInformation(int fd, uint8_t address, uint8_t control, uint8_t repeatedCtrl) {
     uint8_t byte;
-    state_t state = START;
+    state st = START;
 
-    uint8_t is_repeated;
-    data_holder.length = 0;
-    memset(data_holder.buffer, 0, STUFFED_DATA_SIZE + 5);
+    uint8_t isRepeated = 0;
+    dh.length = 0;
+    memset(dh.buffer, 0, STUFFED_DATA_SIZE + 5);
 
-    while (state != STOP) {
-        if (alarm_config.count > alarm_config.num_retransmissions) {
-            return 1;
+    while (st != STOP) {
+        if (alarm_config.count > alarm_config.numRetransmissions) {
+            return 1; // Transmission failed
         }
+
         if (read(fd, &byte, 1) != 1) {
-            continue;
+            continue; // Wait for data to be available
         }
-        if (state == START) {
-            if (byte == FLAG) {
-                state = FLAG_RCV;
-            }
-        } else if (state == FLAG_RCV) {
-            is_repeated = 0;
-            if (byte == address) {
-                state = A_RCV;
-            } else if (byte != FLAG) {
-                state = START;
-            }
-        } else if (state == A_RCV) {
-            if (byte == repeated_ctrl) {
-                is_repeated = 1;
-            }
-            if (byte == control || is_repeated) {
-                state = C_RCV;
-            } else if (byte == FLAG) {
-                state = FLAG_RCV;
-            } else {
-                state = START;
-            }
-        } else if (state == C_RCV) {
-            if ((!is_repeated && byte == (address ^ control)) || (is_repeated && byte == (address ^ repeated_ctrl))) {
-                state = BCC_OK;
-            } else if (byte == FLAG) {
-                state = FLAG_RCV;
-            } else {
-                state = START;
-            }
-        } else if (state == BCC_OK) {
-            if (byte == FLAG) {
-                state = STOP;
-                if (is_repeated) {
-                    return 2;
+
+        switch (st) {
+            case START:
+                if (byte == FLAG) {
+                    st = FLAG_RCV;
                 }
-            } else {
-                data_holder.buffer[data_holder.length++] = byte;
-            }
+                break;
+
+            case FLAG_RCV:
+                isRepeated = 0;
+                if (byte == address) {
+                    st = A_RCV;
+                } else if (byte != FLAG) {
+                    st = START;
+                }
+                break;
+
+            case A_RCV:
+                if (byte == repeatedCtrl) {
+                    isRepeated = 1;
+                }
+                if (byte == control || isRepeated) {
+                    st = C_RCV;
+                } else if (byte == FLAG) {
+                    st = FLAG_RCV;
+                } else {
+                    st = START;
+                }
+                break;
+
+            case C_RCV:
+                if ((!isRepeated && byte == (address ^ control)) || (isRepeated && byte == (address ^ repeatedCtrl))) {
+                    st = BCC_OK;
+                } else if (byte == FLAG) {
+                    st = FLAG_RCV;
+                } else {
+                    st = START;
+                }
+                break;
+
+            case BCC_OK:
+                if (byte == FLAG) {
+                    st = STOP;
+                    if (isRepeated) {
+                        return 2; // Frame received is a repeated control frame
+                    }
+                } else {
+                    dh.buffer[dh.length++] = byte;
+                }
+                break;
         }
     }
 
-    return 0;
+    return 0; // Successful frame reception
 }
 
-//END FRAME UTILS
-
-
-//RECEPTOR
-
-
-#include <fcntl.h>
-#include <string.h>
-#include <stdlib.h>
-#include <termios.h>
-#include <unistd.h>
-
-
-struct {
-    int fd;
-    struct termios oldtio, newtio;
-} receptor;
 
 int receptor_num = 1;
 
@@ -364,10 +374,10 @@ int close_receptor() {
 }
 
 int connect_receptor() {
-    while (read_supervision_frame(receptor.fd, TX_ADDRESS, SET_CONTROL, NULL) != 0) {}
+    while (readSupervision(receptor.fd, TX_ADDRESS, SET_CONTROL, NULL) != 0) {}
 
-    build_supervision_frame(receptor.fd, RX_ADDRESS, UA_CONTROL);
-    if (write(receptor.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    supervision_frame_aux(receptor.fd, RX_ADDRESS, UA_CONTROL);
+    if (write(receptor.fd, dh.buffer, dh.length) != dh.length) {
         return 1;
     }
 
@@ -375,23 +385,23 @@ int connect_receptor() {
 }
 
 int disconnect_receptor() {
-    while (read_supervision_frame(receptor.fd, TX_ADDRESS, DISC_CONTROL, NULL) != 0) {}
+    while (readSupervision(receptor.fd, TX_ADDRESS, DISC_CONTROL, NULL) != 0) {}
 
-    build_supervision_frame(receptor.fd, RX_ADDRESS, DISC_CONTROL);
-    if (write(receptor.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    supervision_frame_aux(receptor.fd, RX_ADDRESS, DISC_CONTROL);
+    if (write(receptor.fd, dh.buffer, dh.length) != dh.length) {
         return 1;
     }
 
-    while (read_supervision_frame(receptor.fd, TX_ADDRESS, UA_CONTROL, NULL) != 0) {}
+    while (readSupervision(receptor.fd, TX_ADDRESS, UA_CONTROL, NULL) != 0) {}
 
     return 0;
 }
 
 int receive_packet(uint8_t* packet) {
     sleep(1);
-    if (read_information_frame(receptor.fd, TX_ADDRESS, I_CONTROL(1 - receptor_num), I_CONTROL(receptor_num)) != 0) {
-        build_supervision_frame(receptor.fd, RX_ADDRESS, RR_CONTROL(1 - receptor_num));
-        if (write(receptor.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    if (readInformation(receptor.fd, TX_ADDRESS, I_CONTROL(1 - receptor_num), I_CONTROL(receptor_num)) != 0) {
+        supervision_frame_aux(receptor.fd, RX_ADDRESS, RR_CONTROL(1 - receptor_num));
+        if (write(receptor.fd, dh.buffer, dh.length) != dh.length) {
             return -1;
         }
 
@@ -400,7 +410,7 @@ int receive_packet(uint8_t* packet) {
 
     uint8_t data[DATA_SIZE];
     uint8_t bcc2;
-    size_t data_size = destuff_data(data_holder.buffer, data_holder.length, data, &bcc2);
+    size_t data_size = transmission_destuff_data(dh.buffer, dh.length, data, &bcc2);
 
     uint8_t tmp_bcc2 = 0;
     for (size_t i = 0; i < data_size; i++) {
@@ -408,8 +418,8 @@ int receive_packet(uint8_t* packet) {
     }
 
     if (tmp_bcc2 != bcc2) {
-        build_supervision_frame(receptor.fd, RX_ADDRESS, REJ_CONTROL(1 - receptor_num));
-        if (write(receptor.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+        supervision_frame_aux(receptor.fd, RX_ADDRESS, REJ_CONTROL(1 - receptor_num));
+        if (write(receptor.fd, dh.buffer, dh.length) != dh.length) {
             return -1;
         }
 
@@ -417,8 +427,8 @@ int receive_packet(uint8_t* packet) {
     }
 
     memcpy(packet, data, data_size);
-    build_supervision_frame(receptor.fd, RX_ADDRESS, RR_CONTROL(receptor_num));
-    if (write(receptor.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    supervision_frame_aux(receptor.fd, RX_ADDRESS, RR_CONTROL(receptor_num));
+    if (write(receptor.fd, dh.buffer, dh.length) != dh.length) {
         return -1;
     }
 
@@ -426,29 +436,10 @@ int receive_packet(uint8_t* packet) {
     return data_size;
 }
 
-
-//transmitter
-
-
-#include <fcntl.h>
-#include <signal.h>
-#include <string.h>
-#include <termios.h>
-#include <unistd.h>
-
-
-#include <stdio.h>
-
-struct {
-    int fd;
-    struct termios oldtio, newtio;
-} transmitter;
-
 int transmitter_num = 0;
-
 void alarm_handler(int signo) {
     alarm_config.count++;
-    if (write(transmitter.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    if (write(transmitter.fd, dh.buffer, dh.length) != dh.length) {
         return ;
     }
     alarm(alarm_config.timeout);
@@ -509,14 +500,14 @@ int close_transmitter() {
 int connect_transmitter() {
     alarm_config.count = 0;
 
-    build_supervision_frame(transmitter.fd, TX_ADDRESS, SET_CONTROL);
+    supervision_frame_aux(transmitter.fd, TX_ADDRESS, SET_CONTROL);
 
-    if (write(transmitter.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    if (write(transmitter.fd, dh.buffer, dh.length) != dh.length) {
         return 1;
     }
     alarm(alarm_config.timeout);
 
-    if (read_supervision_frame(transmitter.fd, RX_ADDRESS, UA_CONTROL, NULL) != 0) {
+    if (readSupervision(transmitter.fd, RX_ADDRESS, UA_CONTROL, NULL) != 0) {
         alarm(0);
         return 2;
     }
@@ -528,15 +519,15 @@ int connect_transmitter() {
 int disconnect_transmitter() {
     alarm_config.count = 0;
 
-    build_supervision_frame(transmitter.fd, TX_ADDRESS, DISC_CONTROL);
-    if (write(transmitter.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    supervision_frame_aux(transmitter.fd, TX_ADDRESS, DISC_CONTROL);
+    if (write(transmitter.fd, dh.buffer, dh.length) != dh.length) {
         return 1;
     }
     alarm(alarm_config.timeout);
 
     int flag = 0;
     for (;;) {
-        if (read_supervision_frame(transmitter.fd, RX_ADDRESS, DISC_CONTROL, NULL) == 0) {
+        if (readSupervision(transmitter.fd, RX_ADDRESS, DISC_CONTROL, NULL) == 0) {
             flag = 1;
             break;
         }
@@ -551,8 +542,8 @@ int disconnect_transmitter() {
         return 2;
     }
 
-    build_supervision_frame(transmitter.fd, TX_ADDRESS, UA_CONTROL);
-    if (write(transmitter.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    supervision_frame_aux(transmitter.fd, TX_ADDRESS, UA_CONTROL);
+    if (write(transmitter.fd, dh.buffer, dh.length) != dh.length) {
         return 3;
     }
 
@@ -562,8 +553,8 @@ int disconnect_transmitter() {
 int send_packet(const uint8_t* packet, size_t length) {
     alarm_config.count = 0;
 
-    build_information_frame(transmitter.fd, TX_ADDRESS, I_CONTROL(transmitter_num), packet, length);
-    if (write(transmitter.fd, data_holder.buffer, data_holder.length) != data_holder.length) {
+    buildInformation(transmitter.fd, TX_ADDRESS, I_CONTROL(transmitter_num), packet, length);
+    if (write(transmitter.fd, dh.buffer, dh.length) != dh.length) {
         return 1;
     }
     alarm(alarm_config.timeout);
@@ -572,7 +563,7 @@ int send_packet(const uint8_t* packet, size_t length) {
     uint8_t rej_ctrl = REJ_CONTROL(1 - transmitter_num);
 
     while (res != 0) {
-        res = read_supervision_frame(transmitter.fd, RX_ADDRESS, RR_CONTROL(1 - transmitter_num), &rej_ctrl);
+        res = readSupervision(transmitter.fd, RX_ADDRESS, RR_CONTROL(1 - transmitter_num), &rej_ctrl);
         if (res == 1) {
             break;
         }
