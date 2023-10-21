@@ -80,7 +80,6 @@ int llread(unsigned char *packet) {
 }
 
 int llclose(int showStatistics) {
-    // TODO find what is the statistics
 
     if (role == LlTx) {
         if (disconnect_transmitter()) {

@@ -94,7 +94,6 @@ int read_control_packet(uint8_t control, uint8_t* buf, size_t* file_size, char* 
         return -1;
     }
 
-    // Process the packet's contents
     uint8_t type;
     size_t length;
     size_t offset = 1;
@@ -167,20 +166,18 @@ void applicationLayer(const char *portName, const char *mode, int baudRate,
     switch (ll.role) {
     case LlTx: {
         if (send(dataFileName) < 0) {
-            printf(stderr, "Failed to send file\n");
+            fprintf(stderr, "Failed to send file\n");
             return;
         }
         break;
     }
     case LlRx: {
         if (receive(dataFileName) < 0) {
-            printf(stderr, "Failed to receive file\n");
+            fprintf(stderr, "Failed to receive file\n");
             return;
-        break;
         }
+        break;
     }
     }
     llclose(0);
 }
-
-
