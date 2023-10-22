@@ -43,4 +43,4 @@ Instructions to Run the Project
 
 
 Gonçalo Matias
-Aníbal Sousa
+Gabriel Sousa
