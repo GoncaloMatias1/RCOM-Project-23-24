@@ -1,3 +1,6 @@
+// Gabriel Sousa and Gonçalo Matias
+
+
 #include "application_layer.h"
 #include "link_layer.h"
 

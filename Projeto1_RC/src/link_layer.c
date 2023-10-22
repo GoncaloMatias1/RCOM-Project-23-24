@@ -1,4 +1,6 @@
 // Link layer protocol implementation
+// Gabriel Sousa and Gonçalo Matias
+
 
 #include "link_layer.h"
 

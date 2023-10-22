@@ -1,6 +1,6 @@
 // Application layer protocol header.
 // NOTE: This file must not be changed.
-// Aníbal Sousa and Gonçalo Matias
+// Gabriel Sousa and Gonçalo Matias
 
 
 #ifndef _APPLICATION_LAYER_H_
