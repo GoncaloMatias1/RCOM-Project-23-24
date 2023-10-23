@@ -70,10 +70,10 @@ int llwrite(const unsigned char *buf, int bufSize) {
     if (send_packet(buf, bufSize)) {
         return -1;
     } else {
-        printf("Sent packet: ");
-        for (int i = 0; i < bufSize; i++) {
+        printf("Sending packets... ");
+        /*for (int i = 0; i < bufSize; i++) {
             printf("0x%02x ", buf[i]);
-        }
+        }*/
         printf("\n");
     }
 
@@ -96,10 +96,10 @@ int llread(unsigned char *packet) {
     }
     memcpy(packet, data, size);
 
-    printf("Received packet: ");
-    for (int i = 0; i < size; i++) {
+    printf("Receiving packets... ");
+    /*for (int i = 0; i < size; i++) {
         printf("0x%02x ", packet[i]);
-    }
+    }*/
     printf("\n");
 
     return size;

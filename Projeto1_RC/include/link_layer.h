@@ -5,10 +5,6 @@
 #ifndef _LINK_LAYER_H_
 #define _LINK_LAYER_H_
 
-// ================================
-// _TRANSMITTER_H_ content starts
-// ================================
-
 #include <stdlib.h>
 #include <stdint.h>
 
