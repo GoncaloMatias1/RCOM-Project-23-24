@@ -130,6 +130,17 @@ int llclose(int showStatistics) {
 }
 
 
+/*
+o BCC é calculado após o "byte stuffing" para que ele leve em consideração todos os bytes que fazem parte da trama, 
+incluindo aqueles que foram modificados durante o processo. Isso garante que a integridade dos dados
+seja verificada corretamente.
+
+Neste código, o "byte stuffing" é aplicado quando os dados são transmitidos de um lado para o outro durante a  
+comunicação . A ideia principal é garantir que os caracteres de FLAG e ESC, que são usados para marcar o início e o 
+fim das tramas e podem aparecer nos dados, sejam interpretados corretamente.
+*/
+
+
 size_t transmission_stuff_data(const uint8_t* data, size_t length, uint8_t bcc2, uint8_t* stuffed_data) {
     size_t stuffed_length = 0;
 
