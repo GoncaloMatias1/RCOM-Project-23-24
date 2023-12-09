@@ -1,0 +1,17 @@
+Switch
+    systemctl restart networking
+
+tux23
+ifconfig eth0 up
+ifconfig eth0 172.16.20.1/24
+
+tux24
+ifconfig eth0 up
+ifconfig eth0 172.16.20.254/24
+
+ping de um computador para outro
+
+route -n 
+arp a 
+arp -d ipadress que está lá (172.16.20.254 acho)
+

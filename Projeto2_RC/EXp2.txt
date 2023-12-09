@@ -1,0 +1,28 @@
+Mexer nos cabos
+
+
+tux22:
+    ifconfig eth0 up
+    ifconfig eth0 172.16.31.1/24
+switch:
+    /interface bridge add name=bridge20
+    /interface bridge add name=bridge21
+    /interface bridge port remove [find interface=ether(num que está lá ligado ao tux23)] 
+    /interface bridge port remove [find interface=ether(num que está lá ligado tux 24)] 
+    /interface bridge port remove [find interface=ether(num que está lá ligado tux 22)] 
+    /interface bridge port add bridge=bridge20 interface=ether(num que está lá ligado ao tux23)
+    /interface bridge port add bridge=bridge20 interface=ether(num que está lá ligado ao tux24) 
+    /interface bridge port add bridge=bridge21 interface=ether(num que está lá ligado ao tux22)
+    /interface bridge port print 
+tux23:
+    ping 172.16.20.254 (ping tux24)
+    ping 172.16.21.1 (ping tux22) 
+    (capturar) 
+    ping -b 172.16.20.255
+    (capturar)
+tux24:
+    ping -b 172.16.20.255
+    (capturar)
+tux22:
+    ping -b 172.16.21.255
+    (capturar)
