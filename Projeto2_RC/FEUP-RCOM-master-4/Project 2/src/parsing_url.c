@@ -1,14 +1,35 @@
 #include "parsing_url.h"
 
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <stdio.h>
+#define URL_INFO_FIELD_SIZE 256
+#define URL_INFO_NUM_FIELDS 6
+#define IP_ADDRESS_LENGTH INET_ADDRSTRLEN
+
 
 void initializeUrlInfo(urlInfo* url){
-    memset(url->user,0,256);
-    memset(url->password,0,256);
-    memset(url->host,0,256);
-    memset(url->urlPath,0,256);
-    memset(url->ipAddress,0,256);
-    memset(url->fileName,0,256);
-    url->port = 21;
+    if (url == NULL) {
+        return; // It's always a good practice to check for NULL pointers
+    }
+
+    char* urlFields[URL_INFO_NUM_FIELDS] = {
+        url->user,
+        url->password,
+        url->host,
+        url->urlPath,
+        url->ipAddress,
+        url->fileName
+    };
+
+    for (int i = 0; i < URL_INFO_NUM_FIELDS; i++) {
+        memset(urlFields[i], 0, URL_INFO_FIELD_SIZE);
+    }
+
+    url->port = 21; // Default FTP port
 }
 
 char* getStringBeforeCharacther(char* str, char chr){
@@ -25,93 +46,97 @@ char* getStringBeforeCharacther(char* str, char chr){
 
 }
 
-int getIpAddressFromHost(urlInfo* url){
+int getIpAddressFromHost(urlInfo* url) {
+    if (url == NULL || url->host == NULL) {
+        fprintf(stderr, "Invalid URL or host information\n");
+        return -1;
+    }
+
     struct hostent* h;
 
-    if ((h=gethostbyname(url->host)) == NULL) {  
+    if ((h = gethostbyname(url->host)) == NULL) {
         herror("gethostbyname");
         return -1;
     }
 
-    strcpy(url->ipAddress,inet_ntoa(*((struct in_addr *)h->h_addr)));
+    // Convert the first address found to a string
+    if (inet_ntop(h->h_addrtype, h->h_addr, url->ipAddress, IP_ADDRESS_LENGTH) == NULL) {
+        perror("inet_ntop");
+        return -1;
+    }
 
     return 0;
 }
 
 
-int parseUrlInfo(urlInfo* url, char * urlGiven){
-    char* protocol = "ftp://";
-    char firstPart[7];
-    memcpy(firstPart,urlGiven,6);
-    firstPart[6] = '\0';
+int parseUrlInfo(urlInfo* url, char* urlGiven) {
+    const char* protocolPrefix = "ftp://";
+    const size_t protocolLength = 6; // Length of "ftp://"
 
-    if(strcmp(protocol,firstPart) != 0){
+    // Check if the URL starts with "ftp://"
+    if (strncmp(urlGiven, protocolPrefix, protocolLength) != 0) {
+        fprintf(stderr, "URL does not start with 'ftp://'\n");
         return -1;
     }
 
-    char * auxUrl = (char*) malloc(strlen(urlGiven));
-    char * urlPath = (char*) malloc(strlen(urlGiven));
+    // Allocate memory for auxiliary URL and URL path
+    size_t urlLength = strlen(urlGiven);
+    char* auxUrl = malloc(urlLength); // No +1 for '\0' because we are not copying the initial "ftp://"
+    char* urlPath = malloc(urlLength);
 
-    strcpy(auxUrl,urlGiven+6);
+    if (!auxUrl || !urlPath) {
+        fprintf(stderr, "Failed to allocate memory for URL parsing\n");
+        free(auxUrl); // Safe to call free on NULL
+        free(urlPath); // Safe to call free on NULL
+        return -1;
+    }
 
-    char* userNameGiven  = strchr(auxUrl,'@');
+    // Skip the "ftp://" part
+    strcpy(auxUrl, urlGiven + protocolLength);
 
-    //username given
-    if(userNameGiven != NULL){
-        strcpy(urlPath,userNameGiven+1);
-        
-        if(strchr(auxUrl,':') == NULL){
-            char* aux;
-            strcpy(url->user,getStringBeforeCharacther(auxUrl,'@'));
+    // Split the URL into user and path
+    char* atSignPtr = strchr(auxUrl, '@');
+    if (atSignPtr) {
+        strcpy(urlPath, atSignPtr + 1); // Copy path part
+        *atSignPtr = '\0'; // Split the string into user and path
 
-            printf("Please put the user password: \n");
-            fgets(url->password,256,stdin);
-            
-            aux = strchr(url->password,'\n');
-            *aux = '\0';
-            
+        char* colonPtr = strchr(auxUrl, ':');
+        if (colonPtr) {
+            *colonPtr = '\0'; // Split the string into user and password
+            strcpy(url->password, colonPtr + 1);
+            strcpy(url->user, auxUrl);
+        } else {
+            strcpy(url->user, auxUrl);
+            // Handle password input separately
         }
-        else{
-            strcpy(url->user,getStringBeforeCharacther(auxUrl,':'));
-
-            strcpy(auxUrl,auxUrl + strlen(url->user)+1);
-
-            strcpy(url->password,getStringBeforeCharacther(auxUrl,'@'));
-        }
-    }
-    else{
-        strcpy(urlPath,auxUrl);
-
-        strcpy(url->user,"anonymous");
-        strcpy(url->password,"anypassword");
-    }
-    
-    
-    
-    strcpy(url->host,getStringBeforeCharacther(urlPath,'/'));
-
-    strcpy(urlPath,urlPath + strlen(url->host)+1);
-    int index = -1;
-
-
-    for (int i = strlen(urlPath)-1; i >= 0; i--)
-    {
-
-        if(urlPath[i] == '/'){
-            index = i;
-            break;
-        }    
+    } else {
+        strcpy(urlPath, auxUrl);
+        strcpy(url->user, "anonymous");
+        strcpy(url->password, "anypassword");
     }
 
-    strcpy(url->urlPath,urlPath);
-    if(index == -1){
-        strcpy(url->fileName,urlPath);
+    // Split the path into host and URL path
+    char* slashPtr = strchr(urlPath, '/');
+    if (slashPtr) {
+        *slashPtr = '\0'; // Split the string into host and URL path
+        strcpy(url->host, urlPath);
+        strcpy(url->urlPath, slashPtr + 1);
+    } else {
+        strcpy(url->host, urlPath);
+        // Handle cases where the URL path is absent
     }
-    else
-    {
-        strcpy(url->fileName,urlPath+index+1);
+
+    // Extract the filename from the URL path
+    char* lastSlashPtr = strrchr(url->urlPath, '/');
+    if (lastSlashPtr) {
+        strcpy(url->fileName, lastSlashPtr + 1);
+    } else {
+        strcpy(url->fileName, url->urlPath);
     }
+
+    // Clean up
+    free(auxUrl);
+    free(urlPath);
 
     return 0;
-
 }

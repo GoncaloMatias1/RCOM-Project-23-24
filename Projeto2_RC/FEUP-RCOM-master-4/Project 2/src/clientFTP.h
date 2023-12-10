@@ -5,10 +5,10 @@
 
 int ftpStartConnection(int* fdSocket, urlInfo* url);
 
-int ftpLoginIn(urlInfo* url, int fdSocket);
+int loginToServer(urlInfo* url, int fdSocket);
 
-int ftpPassiveMode(urlInfo* url, int fdSocket, int* dataSocket);
+int passive_Mode(urlInfo* url, int fdSocket, int* dataSocket);
 
-int ftpRetrieveFile(urlInfo* url, int fdSocket, int * fileSize);
+int retrieveFile(urlInfo* url, int fdSocket, int * fileSize);
 
 int ftpDownloadAndCreateFile(urlInfo* url, int fdDataSocket, int fileSize);
