@@ -1,4 +1,4 @@
-#include "socket.h"
+#include "network_socket.h"
 
 
 int openSocket(char* ipAddress, int port){
