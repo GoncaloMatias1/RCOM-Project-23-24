@@ -1,64 +1,36 @@
 #include "ftp_operations.h"
 
+void handleError(const char* errorMessage, int socket) {
+    perror(errorMessage);
+    if (socket >= 0) {
+        close(socket);
+    }
+    exit(-1);
+}
 
 int main(int argc, char** argv){
-
-    if(argc != 2){
-        perror("Wrong number of arguments!\n");
-        return -1;
-    }
+    if(argc != 2){handleError("Wrong number of arguments!\n", -1);}
 
     urlInfo url;
-    int fdSocket;
-    int fdDataSocket;
-    int fileSize;
+    int fdSocket = -1, fdDataSocket = -1, fileSize;
 
     initializeUrlInfo(&url);
 
-    if(parseUrlInfo(&url,argv[1]) < 0){
-        printf("Error parsing url!\n");
-        return -1;
-    }
+    if(parseUrlInfo(&url, argv[1]) < 0){handleError("Error parsing url!\n", -1);}
 
-    if(getIpAddressFromHost(&url) < 0){
-        printf("Error gettting IP Address!\n");
-        return -1;
-    }
+    if(getIpAddressFromHost(&url) < 0){handleError("Error getting IP Address!\n", -1);}
 
-    if(ftpStartConnection(&fdSocket,&url) < 0){
-        printf("Error initializing connection!\n");
-        return -1;
-    }
+    if(ftpStartConnection(&fdSocket, &url) < 0){handleError("Error initializing connection!\n", -1);}
 
-    if(ftpLoginIn(&url,fdSocket) < 0){
-        printf("Error while logging in!\n");
-        return -1;
-    }
+    if(ftpLoginIn(&url, fdSocket) < 0){handleError("Error while logging in!\n", fdSocket);}
 
+    if(ftpPassiveMode(&url, fdSocket, &fdDataSocket) < 0){handleError("Error entering in passive mode!\n", fdSocket);}
 
-    if(ftpPassiveMode(&url,fdSocket,&fdDataSocket) < 0){
-        printf("Error entering in passive mode!\n");
-        return -1;
-    }
+    if(ftpRetrieveFile(&url, fdSocket, &fileSize) < 0){handleError("Error retrieving file!\n", fdSocket);}
 
-
-    if(ftpRetrieveFile(&url,fdSocket,&fileSize) < 0){
-        printf("Error retrieving file!\n");
-        return -1;
-    }
-
-    if(ftpDownloadAndCreateFile(&url,fdDataSocket, fileSize) < 0){
-        printf("Error downloading/creating file!\n");
-        return -1;
-    }
-
-
-    /*if(readSocketResponse(fdSocket,response) < 0){
-        return -1;
-    }*/
+    if(ftpDownloadAndCreateFile(&url, fdDataSocket, fileSize) < 0){handleError("Error downloading/creating file!\n", fdSocket);}
 
     close(fdSocket);
 
     return 0;
-
 }

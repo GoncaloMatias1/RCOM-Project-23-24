@@ -13,6 +13,7 @@
 
 int openSocket(char* ipAddress, int port);
 
-int writeCommandToSocket(int fdSocket,char* command);
+int writeCommandToSocket(int fdSocket, const char* command);
+
 
 int readSocketResponse(int fdSocket,char* response);
