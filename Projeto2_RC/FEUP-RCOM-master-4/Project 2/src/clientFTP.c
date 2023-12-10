@@ -19,13 +19,13 @@ int establishConnection(int* fdSocket, urlInfo* url) {
     int responseCode;
 
     // Open socket
-    if ((*fdSocket = openSocket(url->ipAddress, url->port)) < 0) {
+    if ((*fdSocket = createSocketConnection(url->ipAddress, url->port)) < 0) {
         perror("Error opening socket");
         return -1;
     }
 
     // Read response from socket
-    if (readSocketResponse(*fdSocket, response) < 0) {
+    if (socketOutput(*fdSocket, response) < 0) {
         perror("Error reading socket response");
         close(*fdSocket); // Close socket on error
         return -1;
@@ -51,13 +51,13 @@ int loginToServer(urlInfo* url, int fdSocket) {
 
     // Send user command
     sprintf(userCommand, "user %s\n", url->user);
-    if (writeCommandToSocket(fdSocket, userCommand) < 0) {
+    if (transmitCommand(fdSocket, userCommand) < 0) {
         perror("Error sending user command");
         return -1;
     }
 
     // Read response to user command
-    if (readSocketResponse(fdSocket, response) < 0) {
+    if (socketOutput(fdSocket, response) < 0) {
         perror("Error reading response to user command");
         return -1;
     }
@@ -70,13 +70,13 @@ int loginToServer(urlInfo* url, int fdSocket) {
     // If a password is required, send it
     if (responseCode == FTP_NEED_PASSWORD_CODE) {
         sprintf(passwordCommand, "pass %s\n", url->password);
-        if (writeCommandToSocket(fdSocket, passwordCommand) < 0) {
+        if (transmitCommand(fdSocket, passwordCommand) < 0) {
             perror("Error sending password command");
             return -1;
         }
 
         // Read response to password command
-        if (readSocketResponse(fdSocket, response) < 0) {
+        if (socketOutput(fdSocket, response) < 0) {
             perror("Error reading response to password command");
             return -1;
         }
@@ -97,13 +97,13 @@ int switchToPassiveMode(urlInfo* url, int fdSocket, int* dataSocket) {
     int responseCode;
 
     // Request passive mode
-    if (writeCommandToSocket(fdSocket, "pasv\n") < 0) {
+    if (transmitCommand(fdSocket, "pasv\n") < 0) {
         perror("Error sending PASV command");
         return -1;
     }
 
     // Read server's response
-    if (readSocketResponse(fdSocket, response) < 0) {
+    if (socketOutput(fdSocket, response) < 0) {
         perror("Error reading response to PASV command");
         return -1;
     }
@@ -128,7 +128,7 @@ int switchToPassiveMode(urlInfo* url, int fdSocket, int* dataSocket) {
     int serverPort = 256 * portParts[0] + portParts[1];
 
     // Open data socket
-    if ((*dataSocket = openSocket(serverIp, serverPort)) < 0) {
+    if ((*dataSocket = createSocketConnection(serverIp, serverPort)) < 0) {
         perror("Error opening data socket");
         return -1;
     }
@@ -145,12 +145,12 @@ int pullServerFile(urlInfo* url, int fdSocket, int * fileSize){
 
     sprintf(retrieveCommand,"retr ./%s\n",url->urlPath);
 
-    if(writeCommandToSocket(fdSocket,retrieveCommand) < 0){
+    if(transmitCommand(fdSocket,retrieveCommand) < 0){
         return -1;
     }
 
 
-    if(readSocketResponse(fdSocket,responseToRetrieve) < 0){
+    if(socketOutput(fdSocket,responseToRetrieve) < 0){
         return -1;
     }
 

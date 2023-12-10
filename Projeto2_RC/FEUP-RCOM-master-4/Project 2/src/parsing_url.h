@@ -21,10 +21,10 @@ typedef struct {
 
 }urlInfo;
 
-void initializeUrlInfo(urlInfo* url);
+void urlConfig(urlInfo* url);
 
-char* getStringBeforeCharacther(char* str, char chr);
+char* extractTextBefore(char* str, char chr);
 
-int getIpAddressFromHost(urlInfo* url);
+int getHostIP(urlInfo* url);
 
-int parseUrlInfo(urlInfo* url, char * urlGiven);
+int urlParsing(urlInfo* url, char * urlGiven);

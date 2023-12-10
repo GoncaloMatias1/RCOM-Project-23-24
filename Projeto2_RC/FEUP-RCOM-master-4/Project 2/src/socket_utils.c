@@ -7,7 +7,7 @@
 
 
 
-int openSocket(char* ipAddress, int port) {
+int createSocketConnection(char* ipAddress, int port) {
     int sockfd;
     struct sockaddr_in server_addr;
 
@@ -30,9 +30,9 @@ int openSocket(char* ipAddress, int port) {
 }
 
 
-int writeCommandToSocket(int fdSocket, const char* command) {
+int transmitCommand(int fdSocket, const char* command) {
     if (command == NULL) {
-        perror("Null command passed to writeCommandToSocket\n");
+        perror("Null command passed to transmitCommand\n");
         return -1;
     }
 
@@ -52,7 +52,7 @@ int writeCommandToSocket(int fdSocket, const char* command) {
     return 0;
 }
 
-int readSocketResponse(int fdSocket, char *response) {
+int socketOutput(int fdSocket, char *response) {
     if (response == NULL) {
         perror("Response buffer is NULL");
         return -1;

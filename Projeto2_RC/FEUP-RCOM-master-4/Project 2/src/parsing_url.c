@@ -11,7 +11,7 @@
 #define IP_ADDRESS_LENGTH INET_ADDRSTRLEN
 
 
-void initializeUrlInfo(urlInfo* url){
+void urlConfig(urlInfo* url){
     if (url == NULL) {
         return; // It's always a good practice to check for NULL pointers
     }
@@ -32,7 +32,7 @@ void initializeUrlInfo(urlInfo* url){
     url->port = 21; // Default FTP port
 }
 
-char* getStringBeforeCharacther(char* str, char chr){
+char* extractTextBefore(char* str, char chr){
 
     char* aux = (char*)malloc(strlen(str));
     strcpy(aux, strchr(str, chr));
@@ -46,7 +46,7 @@ char* getStringBeforeCharacther(char* str, char chr){
 
 }
 
-int getIpAddressFromHost(urlInfo* url) {
+int getHostIP(urlInfo* url) {
     if (url == NULL || url->host == NULL) {
         fprintf(stderr, "Invalid URL or host information\n");
         return -1;
@@ -69,7 +69,7 @@ int getIpAddressFromHost(urlInfo* url) {
 }
 
 
-int parseUrlInfo(urlInfo* url, char* urlGiven) {
+int urlParsing(urlInfo* url, char* urlGiven) {
     const char* protocolPrefix = "ftp://";
     const size_t protocolLength = 6; // Length of "ftp://"
 

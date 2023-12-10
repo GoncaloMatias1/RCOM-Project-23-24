@@ -11,9 +11,9 @@
 #include <strings.h>
 #include "parsing_url.h"
 
-int openSocket(char* ipAddress, int port);
+int createSocketConnection(char* ipAddress, int port);
 
-int writeCommandToSocket(int fdSocket, const char* command);
+int transmitCommand(int fdSocket, const char* command);
 
 
-int readSocketResponse(int fdSocket,char* response);
+int socketOutput(int fdSocket,char* response);

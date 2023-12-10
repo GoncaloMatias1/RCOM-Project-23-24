@@ -14,11 +14,11 @@ int main(int argc, char** argv){
     urlInfo url;
     int fdSocket = -1, fdDataSocket = -1, fileSize;
 
-    initializeUrlInfo(&url);
+    urlConfig(&url);
 
-    if(parseUrlInfo(&url, argv[1]) < 0){handleError("Error parsing url!\n", -1);}
+    if(urlParsing(&url, argv[1]) < 0){handleError("Error parsing url!\n", -1);}
 
-    if(getIpAddressFromHost(&url) < 0){handleError("Error getting IP Address!\n", -1);}
+    if(getHostIP(&url) < 0){handleError("Error getting IP Address!\n", -1);}
 
     if(establishConnection(&fdSocket, &url) < 0){handleError("Error initializing connection!\n", -1);}
 
