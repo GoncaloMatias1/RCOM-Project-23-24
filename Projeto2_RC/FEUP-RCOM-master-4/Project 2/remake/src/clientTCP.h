@@ -12,6 +12,11 @@
 #include <netdb.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 
 int openSocket(char* ipAddress, int port);
 int writeCommandToSocket(int fdSocket, char* command);
