@@ -7,8 +7,8 @@ int establishConnection(int* fdSocket, urlInfo* url);
 
 int loginToServer(urlInfo* url, int fdSocket);
 
-int passiveMode(urlInfo* url, int fdSocket, int* dataSocket);
+int switchToPassiveMode(urlInfo* url, int fdSocket, int* dataSocket);
 
-int retrieveFile(urlInfo* url, int fdSocket, int * fileSize);
+int pullServerFile(urlInfo* url, int fdSocket, int * fileSize);
 
-int download_CreateFile(urlInfo* url, int fdDataSocket, int fileSize);
+int saveLocally(urlInfo* url, int fdDataSocket, int fileSize);

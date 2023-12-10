@@ -24,11 +24,11 @@ int main(int argc, char** argv){
 
     if(loginToServer(&url, fdSocket) < 0){handleError("Error while logging in!\n", fdSocket);}
 
-    if(passiveMode(&url, fdSocket, &fdDataSocket) < 0){handleError("Error entering in passive mode!\n", fdSocket);}
+    if(switchToPassiveMode(&url, fdSocket, &fdDataSocket) < 0){handleError("Error entering in passive mode!\n", fdSocket);}
 
-    if(retrieveFile(&url, fdSocket, &fileSize) < 0){handleError("Error retrieving file!\n", fdSocket);}
+    if(pullServerFile(&url, fdSocket, &fileSize) < 0){handleError("Error retrieving file!\n", fdSocket);}
 
-    if(download_CreateFile(&url, fdDataSocket, fileSize) < 0){handleError("Error downloading/creating file!\n", fdSocket);}
+    if(saveLocally(&url, fdDataSocket, fileSize) < 0){handleError("Error downloading/creating file!\n", fdSocket);}
 
     close(fdSocket);
 
