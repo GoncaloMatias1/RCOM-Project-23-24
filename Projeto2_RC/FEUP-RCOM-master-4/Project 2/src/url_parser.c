@@ -43,6 +43,7 @@ int parseUrlInfo(urlInfo* url, char * urlGiven){
     char* protocol = "ftp://";
     char firstPart[7];
     memcpy(firstPart,urlGiven,6);
+    firstPart[6] = '\0';
 
     if(strcmp(protocol,firstPart) != 0){
         return -1;
