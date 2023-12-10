@@ -3,12 +3,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-int ftpStartConnection(int* fdSocket, urlInfo* url);
+int establishConnection(int* fdSocket, urlInfo* url);
 
 int loginToServer(urlInfo* url, int fdSocket);
 
-int passive_Mode(urlInfo* url, int fdSocket, int* dataSocket);
+int passiveMode(urlInfo* url, int fdSocket, int* dataSocket);
 
 int retrieveFile(urlInfo* url, int fdSocket, int * fileSize);
 
-int ftpDownloadAndCreateFile(urlInfo* url, int fdDataSocket, int fileSize);
+int download_CreateFile(urlInfo* url, int fdDataSocket, int fileSize);

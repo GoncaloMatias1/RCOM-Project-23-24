@@ -13,7 +13,7 @@
 #define PROGRESS_BAR_WIDTH 20
 
 
-int ftpStartConnection(int* fdSocket, urlInfo* url) {
+int establishConnection(int* fdSocket, urlInfo* url) {
     char response[RESPONSE_BUFFER_SIZE] = {0};
     char responseCodeStr[4] = {0}; // For storing the first three characters of the response
     int responseCode;
@@ -43,7 +43,7 @@ int ftpStartConnection(int* fdSocket, urlInfo* url) {
     return 0;
 }
 
-int ftpLoginIn(urlInfo* url, int fdSocket) {
+int loginToServer(urlInfo* url, int fdSocket) {
     char userCommand[COMMAND_BUFFER_SIZE] = {0};
     char passwordCommand[COMMAND_BUFFER_SIZE] = {0};
     char response[RESPONSE_BUFFER_SIZE] = {0};
@@ -90,7 +90,7 @@ int ftpLoginIn(urlInfo* url, int fdSocket) {
     return 0;
 }
 
-int ftpPassiveMode(urlInfo* url, int fdSocket, int* dataSocket) {
+int passiveMode(urlInfo* url, int fdSocket, int* dataSocket) {
     char response[RESPONSE_BUFFER_SIZE] = {0};
     int ipParts[4]; // Elements of the server's IP address
     int portParts[2]; // Elements of the server's port number
@@ -136,7 +136,7 @@ int ftpPassiveMode(urlInfo* url, int fdSocket, int* dataSocket) {
     return 0;
 }
 
-int ftpRetrieveFile(urlInfo* url, int fdSocket, int * fileSize){
+int retrieveFile(urlInfo* url, int fdSocket, int * fileSize){
 
     char retrieveCommand[1024] = {0};
     char responseToRetrieve[1024] = {0};
@@ -172,7 +172,7 @@ int ftpRetrieveFile(urlInfo* url, int fdSocket, int * fileSize){
     return 0;
 }
 
-int ftpDownloadAndCreateFile(urlInfo* url, int fdDataSocket, int fileSize){
+int download_CreateFile(urlInfo* url, int fdDataSocket, int fileSize){
     int fd;
     int bytesRead;
     double totalSize = 0.0;
