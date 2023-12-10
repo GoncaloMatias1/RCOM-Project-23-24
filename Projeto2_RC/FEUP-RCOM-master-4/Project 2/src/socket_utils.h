@@ -9,7 +9,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <strings.h>
-#include "url_parser.h"
+#include "parsing_url.h"
 
 int openSocket(char* ipAddress, int port);
 

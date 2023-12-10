@@ -1,4 +1,4 @@
-#include "ftp_operations.h"
+#include "clientFTP.h"
 
 
 int main(int argc, char** argv){

@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall
-DEPS = url_parser.h network_socket.h ftp_operations.h
-OBJ = url_parser.o network_socket.o ftp_operations.o
+DEPS = parsing_url.h socket_utils.h clientFTP.h
+OBJ = parsing_url.o socket_utils.o clientFTP.o
 TARGETS = download
 
 all: download

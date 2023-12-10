@@ -1,4 +1,4 @@
-#include "ftp_operations.h"
+#include "clientFTP.h"
 
 int ftpStartConnection(int* fdSocket, urlInfo* url){
 
