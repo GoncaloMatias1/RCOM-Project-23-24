@@ -10,10 +10,9 @@
 #define URL_INFO_NUM_FIELDS 6
 #define IP_ADDRESS_LENGTH INET_ADDRSTRLEN
 
-
 void urlConfig(urlInfo* url){
     if (url == NULL) {
-        return; // It's always a good practice to check for NULL pointers
+        return; // Essential to verify for NULL pointers
     }
 
     char* urlFields[URL_INFO_NUM_FIELDS] = {
@@ -29,11 +28,10 @@ void urlConfig(urlInfo* url){
         memset(urlFields[i], 0, URL_INFO_FIELD_SIZE);
     }
 
-    url->port = 21; // Default FTP port
+    url->port = 21; // Assigning default FTP port
 }
 
 char* extractTextBefore(char* str, char chr){
-
     char* aux = (char*)malloc(strlen(str));
     strcpy(aux, strchr(str, chr));
     int index = strlen(str) - strlen(aux);
@@ -43,71 +41,63 @@ char* extractTextBefore(char* str, char chr){
     strncpy(aux,str,index);
 
     return aux;
-
 }
 
 int getHostIP(urlInfo* url) {
     if (url == NULL || url->host == NULL) {
-        fprintf(stderr, "Invalid URL or host information\n");
+        fprintf(stderr, "URL or host details are missing\n");
         return -1;
     }
 
     struct hostent* h;
 
     if ((h = gethostbyname(url->host)) == NULL) {
-        herror("gethostbyname");
+        herror("Host name resolution failed");
         return -1;
     }
 
-    // Convert the first address found to a string
     if (inet_ntop(h->h_addrtype, h->h_addr, url->ipAddress, IP_ADDRESS_LENGTH) == NULL) {
-        perror("inet_ntop");
+        perror("IP address conversion error");
         return -1;
     }
 
     return 0;
 }
 
-
 int urlParsing(urlInfo* url, char* urlGiven) {
     const char* protocolPrefix = "ftp://";
-    const size_t protocolLength = 6; // Length of "ftp://"
+    const size_t protocolLength = 6;
 
-    // Check if the URL starts with "ftp://"
     if (strncmp(urlGiven, protocolPrefix, protocolLength) != 0) {
-        fprintf(stderr, "URL does not start with 'ftp://'\n");
+        fprintf(stderr, "URL must begin with 'ftp://'\n");
         return -1;
     }
 
-    // Allocate memory for auxiliary URL and URL path
     size_t urlLength = strlen(urlGiven);
-    char* auxUrl = malloc(urlLength); // No +1 for '\0' because we are not copying the initial "ftp://"
+    char* auxUrl = malloc(urlLength); 
     char* urlPath = malloc(urlLength);
 
     if (!auxUrl || !urlPath) {
-        fprintf(stderr, "Failed to allocate memory for URL parsing\n");
-        free(auxUrl); // Safe to call free on NULL
-        free(urlPath); // Safe to call free on NULL
+        fprintf(stderr, "Memory allocation for URL parsing failed\n");
+        free(auxUrl);
+        free(urlPath);
         return -1;
     }
 
-    // Skip the "ftp://" part
     strcpy(auxUrl, urlGiven + protocolLength);
 
-    // Split the URL into user and path
     char* atSignPtr = strchr(auxUrl, '@');
     if (atSignPtr) {
-        strcpy(urlPath, atSignPtr + 1); // Copy path part
-        *atSignPtr = '\0'; // Split the string into user and path
+        strcpy(urlPath, atSignPtr + 1);
+        *atSignPtr = '\0';
 
         char* colonPtr = strchr(auxUrl, ':');
         if (colonPtr) {
-            *colonPtr = '\0'; // Split the string into user and password
+            *colonPtr = '\0';
             strcpy(url->password, colonPtr + 1);
             strcpy(url->user, auxUrl);
         } else {
             strcpy(url->user, auxUrl);
-            // Handle password input separately
         }
     } else {
         strcpy(urlPath, auxUrl);
@@ -115,18 +105,15 @@ int urlParsing(urlInfo* url, char* urlGiven) {
         strcpy(url->password, "anypassword");
     }
 
-    // Split the path into host and URL path
     char* slashPtr = strchr(urlPath, '/');
     if (slashPtr) {
-        *slashPtr = '\0'; // Split the string into host and URL path
+        *slashPtr = '\0';
         strcpy(url->host, urlPath);
         strcpy(url->urlPath, slashPtr + 1);
     } else {
         strcpy(url->host, urlPath);
-        // Handle cases where the URL path is absent
     }
 
-    // Extract the filename from the URL path
     char* lastSlashPtr = strrchr(url->urlPath, '/');
     if (lastSlashPtr) {
         strcpy(url->fileName, lastSlashPtr + 1);
@@ -134,7 +121,6 @@ int urlParsing(urlInfo* url, char* urlGiven) {
         strcpy(url->fileName, url->urlPath);
     }
 
-    // Clean up
     free(auxUrl);
     free(urlPath);
 
