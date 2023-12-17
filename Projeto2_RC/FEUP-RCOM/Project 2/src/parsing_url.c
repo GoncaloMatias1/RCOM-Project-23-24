@@ -12,7 +12,7 @@
 
 void urlConfig(urlInfo* url){
     if (url == NULL) {
-        return; // Essential to verify for NULL pointers
+        return;
     }
 
     char* urlFields[URL_INFO_NUM_FIELDS] = {
@@ -28,7 +28,7 @@ void urlConfig(urlInfo* url){
         memset(urlFields[i], 0, URL_INFO_FIELD_SIZE);
     }
 
-    url->port = 21; // Assigning default FTP port
+    url->port = 21;
 }
 
 char* extractTextBefore(char* str, char chr){
