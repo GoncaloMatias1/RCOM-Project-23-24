@@ -1,0 +1,3 @@
+Tux52, Tux53, Tux54:
+configurar DNS
+ping google.com
